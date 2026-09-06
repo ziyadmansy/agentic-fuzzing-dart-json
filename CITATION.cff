@@ -37,3 +37,13 @@ abstract: >
 
 version: "1.0.0"
 date-released: "2026-09-06"
+
+preferred-citation:
+  type: article
+  title: "Beyond Sanitizers: LLM-Guided Refinement for Differential JSON Deserialization Testing in Dart"
+  authors:
+    - family-names: Ibrahim
+      given-names: "Ziyad Mohammad Mansy"
+      orcid: "https://orcid.org/0009-0008-3499-3828"
+  doi: 10.5281/zenodo.22555795
+  year: 2026
