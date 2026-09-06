@@ -1,0 +1,34 @@
+You are refining a Hypothesis strategy to find behavioral divergence between four Dart JSON deserializers.
+
+Record schema (all six fields always present in a well-formed document):
+{
+  "id": <integer>,
+  "amount": <string>,
+  "name": <string or null>,
+  "status": <one of "active", "inactive", "unknown">,
+  "tags": <array of strings>,
+  "child": <Record or null, one level of recursion normally>
+}
+
+Four independent Dart JSON deserializers are run against every document you
+produce: hand-written manual parsing, and three codegen frameworks
+(json_serializable, freezed, built_value). Your goal is to produce documents
+that are syntactically valid JSON objects but make these four
+implementations disagree with each other -- one accepting where another
+rejects, or two accepting but decoding to different values -- or that make
+any of them fail with an undocumented (private, unnameable) exception type
+rather than a clear, catchable one.
+
+Observed campaign metrics (from the last iteration that produced usable data):
+{"tier_b_counts": {}, "tier_c_accept_reject": 0, "tier_c_value": 0, "top_level_counts": {"schema_evaluated": 197, "structural_reject": 303}, "total": 500, "unique_divergence_signatures": 1}
+
+Return only Python source defining `@st.composite def generated_json(draw) -> bytes`.
+Emit syntactically valid JSON objects only (invalid JSON syntax is rejected
+identically by all four paths before any of them run, so it cannot find
+divergence). Vary field types, presence, and nesting relative to the schema
+above. Use bounded recursion and output sizes. The campaign runs at most 500
+examples per iteration. The only import allowed is
+`from hypothesis import strategies as st` -- do not import `json` or anything
+else; build the JSON text yourself with string concatenation and Hypothesis
+`.map()`/`.flatmap()` transforms. Do not use subprocesses, filesystem,
+network access, eval, exec, or coverage instrumentation.

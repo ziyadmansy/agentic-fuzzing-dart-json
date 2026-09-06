@@ -1,0 +1,60 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+We took up a generalization axis a prior study named explicitly as future
+work -- retargeting an LLM-guided, coverage-free grammar-fuzzing pipeline at
+a memory-safe language, where its original sanitizer-based crash oracle has
+no meaning -- and designed two replacements that need no crash at all:
+cross-implementation differential divergence across four widely-used Dart
+JSON deserialization paths, and a ground-truth numeric round-trip check.
+Reusing the original refinement loop with no change to its mechanism, we
+found that it reproduces the original acceptance-rate result almost exactly
+on this new target (50.0\% to a 92.0\% mean, complete rank separation,
+exact $p \approx 0.00794$), confirming the mechanism itself generalizes
+across runtime and language. The same mechanism, same model, same
+iteration budget, did not transfer to our differential objective: even
+after a confirmed, non-arbitrary prompt correction that isolated divergence
+as the explicit score, refinement found divergence in a 2.9\% mean of
+generated documents against a static, schema-aware generator's 22.2\%
+(complete rank separation in the opposite direction, exact $p \approx
+0.00794$). We take this contrast -- not either result alone -- to be the
+paper's central methodological finding: whether LLM-guided refinement helps
+depends on the objective it is asked to optimize, holding everything else
+about the pipeline fixed. A follow-up ablation tested, rather than assumed,
+the obvious alternative explanation for the RQ2 gap: lifting the sandbox's
+restriction against importing a JSON library eliminated the LLM's
+generation-quality overhead almost entirely -- every ablation run reached
+at or near 100\% syntactically valid output -- yet left the divergence rate
+statistically unchanged (2.2\% mean, $p \approx 0.69$ against the
+constrained sandbox, still $p \approx 0.00794$ against the baseline). The
+RQ2 shortfall is a targeting problem, not a generation-quality one,
+decisively. A second follow-up then tested the natural next hypothesis --
+that feeding the proposer perturbation \emph{categories} rather than a bare
+score would help it target more effectively -- and found the opposite: a
+measurably \emph{worse} divergence rate (0.95\% mean, $p \approx 0.032$
+against the score-only prompt, holding under a check restricted to
+schema-evaluated documents), a genuine negative data point against the
+assumption that more informative feedback is strictly better for this
+task.
+
+Two concrete, practitioner-actionable defects fell out of the static
+generator's own campaigns, independent of any LLM: \texttt{built\_value}
+silently defaults a missing list-typed required field to empty rather than
+rejecting the input, and \texttt{json\_serializable} and \texttt{freezed}
+both silently saturate an out-of-range integer field to
+\texttt{int64::MIN}/\texttt{MAX} with no exception at all, confirmed at a
+5.7\% mismatch rate across 43{,}336 sampled checks by re-analyzing data
+already collected for RQ2 rather than running a fourth, redundant
+pipeline. Either defect is directly actionable for a Flutter team choosing
+between these frameworks or handling externally-sourced numeric
+identifiers, independent of anything this paper argues about LLM-guided
+refinement.
+
+We release the full pipeline -- the four-path Dart harness, both
+generators, the refinement loop and both its corrected prompt and its
+category-feedback variant, and every campaign artifact underlying
+Tables~\ref{tab:rq1}, \ref{tab:rq2}, \ref{tab:ablation},
+\ref{tab:category-feedback}, and \ref{tab:rq3} -- so that the RQ1/RQ2
+contrast, the two follow-ups on the RQ2 gap, the RQ3 saturation pattern,
+and the two concrete defects can all be checked, extended to a larger
+sample, or falsified directly rather than taken on faith.

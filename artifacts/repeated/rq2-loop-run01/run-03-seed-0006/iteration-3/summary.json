@@ -1,0 +1,15 @@
+{
+  "total": 500,
+  "top_level_counts": {
+    "structural_reject": 241,
+    "schema_evaluated": 259
+  },
+  "tier_b_counts": {
+    "A_manual": 145,
+    "B_json_serializable": 123,
+    "C_freezed": 123
+  },
+  "tier_c_accept_reject": 5,
+  "tier_c_value": 0,
+  "unique_divergence_signatures": 3
+}

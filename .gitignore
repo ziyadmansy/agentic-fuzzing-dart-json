@@ -1,0 +1,25 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+*.lock.bak
+
+# Python (for the ported refinement-loop pipeline)
+.venv/
+__pycache__/
+*.pyc
+
+# Experiment output: the seeded campaigns underlying the paper's tables
+# (artifacts/repeated/) ARE committed -- the paper explicitly claims their
+# release. Only exclude loose, superseded exploratory runs from before the
+# seeded scripts existed.
+/artifacts/*.jsonl
+/artifacts/*.manifest.json
+/artifacts/*.reproducibility.json
+/artifacts/*.reproducibility.md
+
+# OS
+.DS_Store
+
+# 
+.env

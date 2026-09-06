@@ -1,0 +1,56 @@
+You are refining a Hypothesis strategy to find behavioral divergence between four Dart JSON deserializers.
+
+Record schema (all six fields always present in a well-formed document):
+{
+  "id": <integer>,
+  "amount": <string>,
+  "name": <string or null>,
+  "status": <one of "active", "inactive", "unknown">,
+  "tags": <array of strings>,
+  "child": <Record or null, one level of recursion normally>
+}
+
+Four independent Dart JSON deserializers are run against every document you
+produce: hand-written manual parsing, and three codegen frameworks
+(json_serializable, freezed, built_value). Your goal is to produce documents
+that are syntactically valid JSON objects but make these four
+implementations disagree with each other -- one accepting where another
+rejects, or two accepting but decoding to different values -- or that make
+any of them fail with an undocumented (private, unnameable) exception type
+rather than a clear, catchable one.
+
+YOUR SCORE (from the last iteration that produced usable data): 14 documents
+out of 500 where the four implementations disagreed with each other
+(14 where one accepted and another rejected,
+0 where two accepted but decoded to different values).
+Maximizing this score is the objective. A high rejection count on its own
+(see tier_b_counts below) is not the goal by itself -- a document every
+implementation rejects the same way scores zero, no matter how "malformed"
+it looks.
+
+Other metrics from that iteration, for context only:
+{"tier_b_counts": {"A_manual": 311, "B_json_serializable": 283, "C_freezed": 283}, "top_level_counts": {"schema_evaluated": 391, "structural_reject": 109}, "total": 500, "unique_divergence_signatures": 3}
+
+The previous iteration's proposal failed before producing usable data:
+ProposalError: generated_json is not a Hypothesis strategy: Expected a SearchStrategy but got definition()='{"id":0,"amount":"0","name":null,"status":"active","tags":[],"child":null}' (type=str)
+
+Strategy hint: of the documents that scored last iteration, here is what
+kind of thing was unusual about them, by category (a document can count in
+more than one category): null_override: 14. Categories, in case any need
+explanation: `missing_field` (a schema field absent entirely),
+`null_override` (a normally-required field set to null), `wrong_type` (a
+field present with the wrong JSON type), `bad_enum` (an unrecognized
+`status` string), `boundary_id` (an `id` near or past a 53- or 64-bit
+integer boundary), `extra_key` (an unexpected top-level key), `deep_nesting`
+(more than 3 levels of `child` nesting). Weight your next batch of
+documents toward whichever categories scored highest above, and still vary
+one or two things about an otherwise valid document at a time rather than
+maximizing how unusual any single document looks overall.
+
+Return only Python source defining `@st.composite def generated_json(draw) -> bytes`.
+Emit syntactically valid JSON objects only (invalid JSON syntax is rejected
+identically by all four paths before any of them run, so it cannot score).
+Use bounded recursion and output sizes. The campaign runs at most 500
+examples per iteration. The only import allowed is `from hypothesis import strategies as st` -- do not import `json` or anything else; build the JSON text yourself with string concatenation and Hypothesis `.map()`/`.flatmap()` transforms.
+Do not use subprocesses, filesystem, network access, eval, exec, or
+coverage instrumentation.

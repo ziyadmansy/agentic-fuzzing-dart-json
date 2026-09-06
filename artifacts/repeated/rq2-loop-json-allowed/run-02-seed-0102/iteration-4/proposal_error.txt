@@ -1,0 +1,1 @@
+ProposalError: generated_json is not a Hypothesis strategy: Cannot create a collection of min_size=2 unique elements with values drawn from only 1 distinct elements

@@ -1,0 +1,37 @@
+cff-version: 1.2.0
+title: "Beyond Sanitizers: LLM-Guided Refinement for Differential JSON Deserialization Testing in Dart"
+message: "If you use this repository in your research, please cite it using the metadata below."
+type: software
+
+authors:
+  - family-names: Ibrahim
+    given-names: "Ziyad Mohammad Mansy"
+    orcid: "https://orcid.org/0009-0008-3499-3828"
+
+repository-code: "https://github.com/ziyadmansy/agentic-fuzzing-dart-json"
+
+url: "https://github.com/ziyadmansy/agentic-fuzzing-dart-json"
+
+license: MIT
+
+keywords:
+  - differential testing
+  - agentic AI
+  - large language models
+  - JSON deserialization
+  - Dart
+  - Flutter
+  - software testing
+  - fuzzing
+  - Hypothesis
+
+abstract: >
+  Research artifact accompanying the paper retargeting an LLM-guided,
+  coverage-free grammar-fuzzing pipeline (originally evaluated on two C JSON
+  parsers under a sanitizer-based crash oracle) at a memory-safe target --
+  Dart JSON deserialization across four widely-used Flutter frameworks --
+  replacing the crash oracle with cross-implementation differential
+  divergence and a ground-truth numeric round-trip check.
+
+version: "1.0.0"
+date-released: "2026-09-06"

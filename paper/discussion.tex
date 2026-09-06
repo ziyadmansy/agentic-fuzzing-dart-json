@@ -1,0 +1,155 @@
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Interpreting the RQ1/RQ2 contrast}
+The central empirical fact of this paper is not either number in
+Section~\ref{sec:evaluation} alone, but that they point in opposite
+directions under an otherwise identical mechanism: the same refinement
+loop, the same proposer model, the same iteration budget, the same
+sandboxing discipline, raises acceptance rate on a like-for-like
+replication of the original study's objective (RQ1) and simultaneously
+underperforms a simple static generator on a differential divergence
+objective (RQ2). This is evidence that ``LLM-guided refinement helps''
+is not a property of the pipeline in general -- it is a property of the
+pipeline \emph{given a specific objective}, and the objective matters more
+than we expected going in. Acceptance rate against a single decoder is a
+smooth, easy-to-improve-incrementally signal: almost any perturbation that
+makes a document more JSON-shaped moves the number in the right direction,
+and an LLM has presumably seen enormous amounts of well-formed JSON during
+training. Cross-implementation divergence is a much harder target: it
+requires a document that is \emph{simultaneously} well-formed enough to
+clear one implementation's more lenient path and malformed enough
+(in one specific, narrow way) to trip a stricter one, which is a
+needle-in-haystack search over a much smaller region of the input space
+than ``more JSON-like'' rewards.
+
+We tested, rather than speculated about, the obvious alternative
+explanation: that RQ2's gap is mostly sandbox-driven generation overhead
+(the LLM cannot import a JSON library and must hand-build JSON text, which
+is failure-prone) rather than a genuine targeting shortfall. Directly
+permitting \texttt{import json} (Section~\ref{sec:ablation-json}) eliminated
+the generation-overhead problem almost entirely -- every ablation run
+reached at or near 100\% \texttt{schema\_evaluated} -- yet the divergence
+rate did not move: 2.20\% mean, statistically indistinguishable from the
+constrained sandbox's 2.93\% ($p \approx 0.69$), both still an order of
+magnitude below the static baseline. The RQ2 gap is not generation
+overhead at all; it is entirely a targeting problem. This is a stronger and
+more precise conclusion than our first attempt at explaining it
+(restricting the comparison to schema-evaluated documents only, which could
+not fully separate the two effects).
+
+Having localized the problem to targeting, the direct next question is
+whether more informative feedback about the targeting problem specifically
+closes it. It did not -- and did measurably worse. Feeding back
+perturbation categories (Section~\ref{sec:category-feedback}) produced a
+0.95\% mean divergence rate, significantly below the score-only prompt's
+2.93\% ($p \approx 0.032$, both overall and restricted to schema-evaluated
+documents, ruling out proposal-failure noise as the explanation). Taken
+together with the ablation, this suggests the limiting factor is not that
+the proposer lacks information about \emph{what} tends to work -- it is
+given exactly that information twice now, once implicitly (via the score)
+and once explicitly (via categories) -- but a harder difficulty actually
+implementing an effective divergence-hunting generator in code, one that
+additional textual guidance does not straightforwardly fix and may compete
+with by adding more for the proposer to reason about at once. We report
+this as a genuine negative data point against the intuitive assumption
+that richer feedback is strictly better, not as a settled explanation of
+why: at $n{=}5$ we can establish the direction of the effect, not its
+mechanism.
+
+\subsection{The value of reporting a corrected prompt, not just a final one}
+Section~\ref{sec:rq2-prompt}'s prompt fix is itself worth discussing as a
+methodological point independent of its numeric effect. The unmodified
+prompt drove up an unrelated metric (per-path rejection counts) while
+completely failing at the intended one (divergence) across three full
+seeded runs -- a proposer optimizing ``move the numbers shown to me''
+when the numbers shown do not clearly identify which one is the actual
+objective. This mirrors, on a different metric, exactly the concern the
+original study's own discussion raised about acceptance-rate
+over-optimization crowding out boundary-probing behavior. We treat this as
+a reason to report negative or confounded intermediate results explicitly
+in future work on prompt-driven refinement objectives, rather than only
+the final, working design -- the failure mode is informative on its own,
+and silently iterating past it would have understated how easy it is for
+an LLM-guided loop to optimize the wrong thing when the prompt does not
+make the objective unambiguous.
+
+\subsection{Threats to validity}
+\textbf{Construct validity.} RQ2's divergence oracle can only detect
+disagreement between the four specific paths instrumented; it says nothing
+about whether any individual path is ``correct'' relative to a
+specification, only that they disagree. RQ3's ground-truth oracle is
+narrower still, scoped to one field (\texttt{id}) chosen because it is the
+schema's only bare JSON-number token -- a deliberate, evidenced choice
+(Section~\ref{sec:methodology}) after an earlier draft of this design
+named a string-typed field that cannot exhibit numeric precision loss at
+all.
+
+\textbf{Internal validity.} The $n{=}5$ RQ2 comparison used a corrected
+prompt that itself required an intermediate failed attempt to discover
+(Section~\ref{sec:rq2-prompt}); we validated the fix on a held-out seed
+before committing the full five-seed budget to it specifically to guard
+against tuning the prompt to the same data used to report the result, but
+we did not attempt further prompt variants beyond the one fix, so we
+cannot rule out that a different, equally principled prompt design closes
+more of the RQ1/RQ2 gap than the one reported here.
+
+\textbf{Statistical validity.} $n{=}5$ per arm is a small sample, chosen
+under a fixed, modest API budget and reported as exactly that throughout,
+following the original study's own precedent for its smaller-sample
+ablation. Complete rank separation at $n{=}5$ gives an exact $p \approx
+0.00794$, which is the smallest attainable exact $p$-value this design can
+produce, not a measure of effect size independent of sample size; we
+report the underlying per-run rates in Tables~\ref{tab:rq1}, \ref{tab:rq2},
+\ref{tab:ablation}, and \ref{tab:category-feedback} for exactly that
+reason, and a larger-$n$
+replication, budget permitting, is the direct way to strengthen this
+result (Section~\ref{sec:future-work}).
+
+\textbf{External validity.} All results are on JSON, on four specific,
+pinned-version Dart deserialization paths, with one LLM
+(\texttt{gpt-4.1-mini}) at one temperature setting. We make no claim that
+the magnitude of the RQ1, RQ2, or follow-up effects, or the RQ3 saturation
+pattern's exact threshold behavior, generalizes to other formats, other
+Dart packages or package versions, or other proposer models.
+
+\subsection{When this approach is, and is not, the right tool}
+The differential divergence oracle (RQ2) is only informative when multiple
+independent implementations of the same specification genuinely exist and
+are in real concurrent use, which is true of Dart JSON deserialization
+specifically because the ecosystem has several competing, actively
+maintained codegen frameworks with no single dominant standard. A target
+with one canonical implementation and no independent alternative has no
+comparison partner for this oracle at all, and the numeric round-trip
+oracle (RQ3) or an exception-contract oracle (Section~\ref{sec:evaluation-defects}'s
+private-exception classification) would be the applicable choice instead.
+
+\subsection{Future work}
+\label{sec:future-work}
+Several extensions follow directly from what this study measured but did
+not have budget to pursue further. First, since neither the score-only
+prompt nor the richer category-feedback prompt
+(Section~\ref{sec:category-feedback}) closed the RQ2 gap -- and the latter
+did measurably worse -- the open question is no longer "what feedback
+helps" but whether the proposer's difficulty is better addressed
+structurally: for instance, letting it retain and mutate its
+\emph{previous} iteration's generator source rather than rewriting from
+scratch each time (this pipeline's loop, reused unmodified from the
+original, always discards the prior proposal), or giving it a small library
+of worked examples of divergence-causing perturbations applied to an
+unrelated schema, rather than more description of the current one. Second,
+a larger-$n$ replication of RQ1, RQ2, and both
+Section~\ref{sec:ablation-json}/\ref{sec:category-feedback} follow-ups,
+budget permitting, would tighten the exact $p$-values reported here past
+what $n{=}5$ can produce, the same way the original study's own $n{=}15$
+result tightened its earlier smaller-sample finding. Third, the qualitative
+union side study (Section~\ref{sec:evaluation-union}) found a real
+exception-type difference between \texttt{freezed} and
+\texttt{json\_serializable} on thirteen hand-picked documents but was not
+run through this paper's automated oracle, generator, or seeded-campaign
+machinery at all; building a Payload-shaped generator and harness endpoint
+and re-running the RQ2-style baseline-vs-refined comparison on it would
+establish whether this exception-type difference (or a genuine value
+divergence, not observed in the small hand-picked sample) appears at the
+rate and statistical rigor the main Record schema's findings do, rather
+than resting on thirteen cases.

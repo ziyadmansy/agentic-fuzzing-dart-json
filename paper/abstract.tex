@@ -1,0 +1,48 @@
+A prior black-box, LLM-guided grammar-fuzzing pipeline raised a native C
+parser's acceptance rate from 58.2\% to 97.1\% using only coverage-free
+feedback, and named a memory-safe target -- where ``crash'' has no
+sanitizer-based meaning -- as future work along a materially different
+generalization axis than swapping one C parser for another. We take up that
+challenge directly. We retarget the identical refinement loop at four
+widely-used Dart/Flutter JSON deserialization paths -- hand-written parsing,
+and the \texttt{json\_serializable}, \texttt{freezed}, and
+\texttt{built\_value} codegen frameworks -- and replace the sanitizer-based
+crash oracle with two oracles that need no crash at all: cross-implementation
+differential divergence, and a ground-truth numeric round-trip check. Across
+a budget-scoped $n{=}5$-per-arm design, refinement reproduces the original
+result almost exactly on a like-for-like acceptance objective (50.0\% to a
+92.0\% mean, complete rank separation, exact two-sided $p \approx 0.0079$),
+confirming the underlying mechanism transfers to a new runtime and language.
+The same mechanism does not transfer to our differential objective: even
+after correcting the refinement prompt to isolate divergence as the explicit
+score -- itself a confirmed, three-seed fix, not a guess -- refinement finds
+cross-implementation divergence in a 2.9\% mean of generated documents,
+against 22.2\% for a simple static, schema-aware generator (complete
+separation, exact two-sided $p \approx 0.0079$, opposite direction from the
+acceptance result). We test, rather than speculate about, the obvious
+alternative explanation -- that the gap is generation overhead from a
+sandbox that forbids the LLM from importing a JSON library, forcing it to
+hand-build JSON text -- by re-running the refined arm with that one
+restriction lifted: the resulting arm reaches 100\% syntactically valid
+output, essentially eliminating the overhead, yet its divergence rate
+(2.2\% mean) is statistically indistinguishable from the constrained
+sandbox's ($p \approx 0.69$) and remains just as far below the baseline.
+The RQ2 shortfall is a targeting problem, not a generation-quality one,
+decisively -- and richer feedback does not fix it either: telling the
+proposer which categories of perturbation its divergent documents exhibited,
+rather than a single score, performs measurably \emph{worse} ($0.95\%$
+mean, $p \approx 0.032$ against the score-only prompt), a genuine data
+point against the assumption that more informative feedback is strictly
+better for this task. The static generator's own campaigns surface two concrete,
+practitioner-actionable defects independent of any
+LLM: \texttt{built\_value} silently defaults a missing list-typed required
+field to empty rather than rejecting the input, while
+\texttt{json\_serializable} and \texttt{freezed} silently saturate
+out-of-range integer fields to \texttt{int64::MIN}/\texttt{MAX} with no
+exception at all -- confirmed at a 5.7\% mismatch rate across 43{,}336
+sampled records via a no-cost analysis pass over already-collected campaign
+data, rather than a fourth, redundant fuzzing pipeline. We argue the
+resulting picture -- refinement's benefit is objective-dependent, not
+universal, even holding target, model, and iteration budget fixed -- is
+itself the more useful methodological contribution than either number in
+isolation, and release the full pipeline, harness, and campaign data.

@@ -1,0 +1,22 @@
+{
+  "arguments": {
+    "allow_json": "True",
+    "artifact_dir": "artifacts/repeated/rq2-loop-json-allowed",
+    "examples": "500",
+    "executable": "/Users/ziyadmansy/agentic-fuzzing-dart-json/build/dart_json_harness",
+    "iterations": "5",
+    "model": "gpt-4.1-mini",
+    "overwrite": "False",
+    "runs": "4",
+    "seed": "101",
+    "timeout": "5.0"
+  },
+  "feedback_mode": null,
+  "hypothesis_version": "6.165.5",
+  "model": "gpt-4.1-mini",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "python_implementation": "CPython",
+  "python_version": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.1.1.101)]",
+  "seed": 101,
+  "timestamp": "2026-09-06T13:49:57.982433+00:00"
+}
