@@ -248,7 +248,7 @@ memory-safe, multi-implementation target.
 
 ## Citation
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22544012.svg)](https://doi.org/10.5281/zenodo.22544012)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22544011.svg)](https://doi.org/10.5281/zenodo.22544011)
 
 If you use this repository, please cite the archived release (see also
 [`CITATION.cff`](CITATION.cff)). The DOI above is the concept DOI — it
@@ -261,7 +261,7 @@ own DOI instead if you need to pin to exactly the artifact you used:
   title   = {{Beyond Sanitizers: LLM-Guided Refinement for Differential JSON Deserialization Testing in Dart}},
   year    = {2026},
   version = {1.0.0},
-  doi     = {10.5281/zenodo.22544012},
+  doi     = {10.5281/zenodo.22544011},
   url     = {https://github.com/ziyadmansy/agentic-fuzzing-dart-json}
 }
 ```
