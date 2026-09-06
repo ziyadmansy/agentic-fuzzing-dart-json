@@ -1,0 +1,85 @@
+\section{Related Work}
+\label{sec:related-work}
+
+\paragraph{Coverage-guided fuzzing.}
+American Fuzzy Lop~\cite{zalewski2014afl} and its successor AFL++~\cite{fioraldi2020aflplusplus}
+popularized mutation-based, coverage-guided fuzzing: a target is
+instrumented to report which code ran, and the fuzzer retains and mutates
+inputs that reach new coverage. Man\`es et al.'s survey~\cite{manes2021fuzzing}
+gives a taxonomy of this and related approaches. Coverage-guided fuzzers are
+highly effective when instrumentation is available, but instrumentation
+itself is exactly what a memory-safe, JIT/AOT-compiled runtime such as
+Dart's makes both less necessary (there is no memory-safety class of bug for
+a sanitizer to catch) and less available in the form these tools assume;
+none of this family targets the failure modes this paper is concerned with.
+
+\paragraph{Grammar-based and generation-based fuzzing.}
+Generating inputs directly from a grammar, rather than mutating bytes, is a
+much older idea: Purdom's sentence generator~\cite{purdom1972sentence}
+produces short strings that exercise every grammar production, originally
+for testing and debugging parsers themselves. More recent tools combine a
+grammar with coverage feedback: Superion~\cite{wang2019superion} extends a
+greybox fuzzer with grammar-aware mutation operators so mutated inputs
+remain syntactically valid, and Nautilus~\cite{aschermann2019nautilus}
+similarly pairs a grammar-based generator with coverage-guided mutation to
+reach deeper parser states. Both still assume coverage instrumentation is
+available; the pipeline this paper extends removes that assumption
+entirely.
+
+\paragraph{Property-based testing.}
+QuickCheck~\cite{claessen2000quickcheck} introduced property-based testing:
+a developer writes generators for values of a given shape and a property
+that should hold for all of them, and the tool searches for a
+counterexample. Hypothesis~\cite{maciver2019hypothesis}, which the pipeline
+this paper reuses builds directly on, is a Python implementation of the
+same idea, with composable strategies expressive enough to encode both a
+formal grammar (our RQ1 generator) and an adversarial perturbation catalog
+over a target-specific schema (our RQ2 generator, Section~\ref{sec:methodology}).
+
+\paragraph{LLMs for fuzzing and test generation.}
+LLMs have recently been used to generate or mutate fuzzing inputs directly.
+TitanFuzz~\cite{deng2023titanfuzz} uses an LLM to generate and mutate
+programs for fuzzing deep-learning library APIs, relying on the LLM's prior
+exposure to real usage examples of those APIs rather than a formal grammar.
+Fuzz4All~\cite{xia2024fuzz4all} generalizes this to arbitrary
+languages/systems by using an LLM both to synthesize a distilled input
+prompt from documentation and examples and to generate and mutate inputs
+from it. CodaMOSA~\cite{lemieux2023codamosa} invokes an LLM only after
+search-based test generation's coverage plateaus, asking it for example
+test cases to escape the plateau -- i.e., the LLM is invoked \emph{because}
+coverage feedback is available and has stalled. This paper's setting differs
+along the same axis as its predecessor~\cite{mansy2026agentic}: no coverage
+signal is available at any point, and the LLM's job is to revise a reusable,
+executable \emph{generator} against feedback a black-box harness can
+actually produce, not to emit one-off inputs.
+
+\paragraph{Differential testing.}
+Running multiple independent implementations of the same specification
+against identical inputs and comparing their outputs, rather than checking
+each against a hand-written oracle, dates to McKeeman's differential
+testing~\cite{mckeeman1998differential}. This idea is what makes RQ2's
+oracle possible at all in a setting with no crash to detect: four
+independently-implemented Dart JSON deserialization paths sharing one
+formal schema give a comparison target for free, the same way McKeeman
+compared independent compiler implementations against each other rather
+than against a formal semantics. Where classic differential testing
+compares whole programs given the same input, our four paths share almost
+their entire input pipeline (Section~\ref{sec:methodology}'s shared
+JSON-syntax gate) and differ only in schema-level decoding, which is a
+narrower and, we find, more failure-prone surface than differential testing
+is usually applied to.
+
+\paragraph{Positioning.} This paper is a direct empirical follow-up to
+\cite{mansy2026agentic}, which evaluated the identical refinement-loop
+mechanism on two independently implemented C JSON parsers under a
+sanitizer-based crash oracle and named a memory-safe target as future work
+along a materially different generalization axis. We take up exactly that
+axis: same loop, same sandboxing discipline, same reproducibility tooling
+where none of it is C- or format-specific, retargeted at a language where
+the entire premise of a crash oracle does not hold, using differential
+divergence~\cite{mckeeman1998differential} and ground-truth numeric
+round-tripping as replacements. Unlike TitanFuzz, Fuzz4All, and CodaMOSA,
+the LLM here never sees coverage data, execution traces, or usage examples --
+only a schema description and the same three-signal proxy discipline (here,
+a divergence score in place of acceptance rate) a human maintaining a
+Hypothesis strategy by hand would have to reason about manually.

@@ -1,0 +1,149 @@
+{
+  "incomplete_runs": [],
+  "per_run": [
+    {
+      "acceptance_percentage": 50.0,
+      "accepted": 250,
+      "crashes": 0,
+      "encoding_errors": 0,
+      "executed": 500,
+      "iterations": 1,
+      "iterations_rejected": 0,
+      "iterations_with_data": 1,
+      "model": null,
+      "problems": [],
+      "rejected": 250,
+      "rejection_signatures": 1,
+      "run": "run-01-seed-0000",
+      "seed": 0,
+      "structural_fingerprints": 261,
+      "timestamp": "2026-09-06T07:35:43.993118+00:00"
+    },
+    {
+      "acceptance_percentage": 50.0,
+      "accepted": 250,
+      "crashes": 0,
+      "encoding_errors": 0,
+      "executed": 500,
+      "iterations": 1,
+      "iterations_rejected": 0,
+      "iterations_with_data": 1,
+      "model": null,
+      "problems": [],
+      "rejected": 250,
+      "rejection_signatures": 1,
+      "run": "run-02-seed-0001",
+      "seed": 1,
+      "structural_fingerprints": 290,
+      "timestamp": "2026-09-06T07:35:52.932141+00:00"
+    },
+    {
+      "acceptance_percentage": 50.0,
+      "accepted": 250,
+      "crashes": 0,
+      "encoding_errors": 0,
+      "executed": 500,
+      "iterations": 1,
+      "iterations_rejected": 0,
+      "iterations_with_data": 1,
+      "model": null,
+      "problems": [],
+      "rejected": 250,
+      "rejection_signatures": 1,
+      "run": "run-03-seed-0002",
+      "seed": 2,
+      "structural_fingerprints": 290,
+      "timestamp": "2026-09-06T07:36:01.887996+00:00"
+    },
+    {
+      "acceptance_percentage": 50.0,
+      "accepted": 250,
+      "crashes": 0,
+      "encoding_errors": 0,
+      "executed": 500,
+      "iterations": 1,
+      "iterations_rejected": 0,
+      "iterations_with_data": 1,
+      "model": null,
+      "problems": [],
+      "rejected": 250,
+      "rejection_signatures": 1,
+      "run": "run-04-seed-0003",
+      "seed": 3,
+      "structural_fingerprints": 264,
+      "timestamp": "2026-09-06T07:36:11.198050+00:00"
+    },
+    {
+      "acceptance_percentage": 50.0,
+      "accepted": 250,
+      "crashes": 0,
+      "encoding_errors": 0,
+      "executed": 500,
+      "iterations": 1,
+      "iterations_rejected": 0,
+      "iterations_with_data": 1,
+      "model": null,
+      "problems": [],
+      "rejected": 250,
+      "rejection_signatures": 1,
+      "run": "run-05-seed-0004",
+      "seed": 4,
+      "structural_fingerprints": 275,
+      "timestamp": "2026-09-06T07:36:22.488447+00:00"
+    }
+  ],
+  "runs_found": 5,
+  "runs_with_data": 5,
+  "source": "artifacts/repeated/rq1-baseline-n5",
+  "statistics": {
+    "acceptance_percentage": {
+      "max": 50.0,
+      "mean": 50.0,
+      "min": 50.0,
+      "runs": 5,
+      "stdev": 0.0
+    },
+    "accepted": {
+      "max": 250.0,
+      "mean": 250.0,
+      "min": 250.0,
+      "runs": 5,
+      "stdev": 0.0
+    },
+    "crashes": {
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "runs": 5,
+      "stdev": 0.0
+    },
+    "encoding_errors": {
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "runs": 5,
+      "stdev": 0.0
+    },
+    "rejected": {
+      "max": 250.0,
+      "mean": 250.0,
+      "min": 250.0,
+      "runs": 5,
+      "stdev": 0.0
+    },
+    "rejection_signatures": {
+      "max": 1.0,
+      "mean": 1.0,
+      "min": 1.0,
+      "runs": 5,
+      "stdev": 0.0
+    },
+    "structural_fingerprints": {
+      "max": 290.0,
+      "mean": 276.0,
+      "min": 261.0,
+      "runs": 5,
+      "stdev": 13.802
+    }
+  }
+}

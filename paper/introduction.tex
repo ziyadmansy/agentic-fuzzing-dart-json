@@ -1,0 +1,127 @@
+\section{Introduction}
+
+A black-box, LLM-guided grammar-fuzzing pipeline can be evaluated along two
+different generalization axes. One is swapping the target implementation
+while keeping everything else fixed -- a prior study did this, reusing an
+identical pipeline unmodified against a second, independently implemented C
+JSON parser, and found the mechanics of the loop (harness contract, proxy
+signal, sandbox) transferred with no redesign~\cite{mansy2026agentic}. The
+other axis, which that same study named explicitly as unaddressed future
+work, is swapping the \emph{oracle} itself: every component of that
+pipeline's failure signal -- a sanitizer-instrumented build, a subprocess's
+exit code, a fatal signal -- assumes a native process that can crash in the
+memory-unsafe sense. A memory-safe language has no such crash to look for,
+and ``failure'' has to be redefined around something else entirely:
+uncaught exceptions, silently violated API contracts, or values that
+decode incorrectly without any exception at all.
+
+This paper takes up that second axis directly, against a target chosen for
+practical relevance rather than novelty for its own sake: JSON
+deserialization in Dart, the language Flutter mobile and web applications
+are written in. A first attempt at porting the original pipeline's crash
+oracle onto a single, well-audited Dart JSON decoder would likely reproduce
+the same kind of result the original study already reported for its second
+C target -- a negative result, explainable but not informative, since a
+heavily-used standard-library decoder is exactly the kind of target
+unlikely to crash under a bounded fuzzing budget. We reject that port and
+design two oracles instead that do not depend on a crash occurring at all.
+The first is \emph{differential divergence}: rather than one implementation
+whose accept/reject decision is the only signal available, we run every
+generated document through four independently-implemented, widely-used Dart
+JSON deserialization paths simultaneously -- hand-written parsing, and the
+\texttt{json\_serializable}, \texttt{freezed}, and \texttt{built\_value}
+codegen frameworks -- and treat disagreement between them, not a crash, as
+the signal. The second is a \emph{ground-truth numeric round-trip check}:
+JSON permits arbitrary-precision integer literals syntactically, and we
+check whether a decoded value preserves the exact input magnitude, which
+needs no assumption about what ``correct'' looks like beyond the literal
+text the generator wrote.
+
+Retargeting the oracle this way changes what the refinement loop is actually
+being asked to optimize, and we treat that as an empirical question rather
+than assuming the original result transfers. Concretely, this paper asks
+three research questions. \textbf{RQ1}: reusing the original acceptance-rate
+proxy and refinement loop essentially unmodified, does LLM-guided refinement
+still raise a Dart JSON generator's rate of producing syntactically valid
+documents, the way it did for the original C target? \textbf{RQ2}: across
+the four Dart deserialization paths, does malformed or boundary-case input
+surface behavioral divergence, and does LLM-guided refinement -- with its
+prompt corrected to make divergence the explicit objective, not just an
+incidental metric shown alongside others -- find more of it than a static,
+schema-aware generator designed by hand after studying a small number of
+cases? \textbf{RQ3}: does numeric decoding across these four paths preserve
+exact integer values at magnitudes JSON's grammar permits but native
+integer types do not, and how far does this generalize once measured at
+scale rather than on one hand-picked probe?
+
+We answer RQ1 affirmatively and RQ2 negatively, and the contrast between the
+two is the paper's central finding: the same refinement mechanism, same
+proposer model, same iteration budget, transfers cleanly to one objective
+and not to the other. RQ3's answer is a concrete, quantified, and -- to our
+knowledge -- previously undocumented defect pattern across two of the four
+most common Dart serialization frameworks in real use. Concretely, this
+paper contributes:
+
+\begin{itemize}
+  \item Two coverage-free, crash-free oracles -- cross-implementation
+    differential divergence and ground-truth numeric round-trip checking --
+    designed specifically for a memory-safe target where the original
+    pipeline's sanitizer-based crash oracle does not apply, and a two-stage
+    harness contract (a shared JSON-syntax gate, then four independent
+    schema-level attempts) that makes the divergence oracle computable
+    automatically from four otherwise-ordinary Dart programs.
+  \item A budget-scoped, seeded, $n{=}5$-per-arm empirical comparison
+    (RQ1) showing the original pipeline's refinement mechanism reproduces
+    its acceptance-rate effect almost exactly on a new runtime and
+    language -- 50.0\% to a 92.0\% mean, complete rank separation, exact
+    two-sided $p \approx 0.0079$ -- a direct generalization result along the
+    axis the original study left open.
+  \item A second $n{=}5$-per-arm comparison (RQ2) showing the same
+    mechanism, applied to a differential divergence objective instead,
+    \emph{underperforms} a static, schema-aware generator by an order of
+    magnitude (2.9\% mean vs.\ 22.2\% mean, complete rank separation in the
+    opposite direction, exact two-sided $p \approx 0.0079$).
+  \item A follow-up ablation that tests, rather than assumes, why: lifting
+    the sandbox's restriction against importing a JSON library eliminates
+    the LLM's generation-quality overhead almost entirely (every run reaches
+    at or near 100\% syntactically valid output) yet leaves the divergence
+    rate statistically unchanged (2.2\% mean, $p \approx 0.69$ against the
+    constrained sandbox) -- establishing decisively that RQ2's shortfall is
+    a targeting problem, not a generation-quality one.
+  \item A second follow-up testing the natural next hypothesis -- that
+    richer feedback (perturbation \emph{categories}, not just a score)
+    closes the targeting gap -- and finding the opposite: a measurably
+    \emph{worse} divergence rate (0.95\% mean, $p \approx 0.032$ against the
+    score-only prompt), a genuine negative data point against the
+    assumption that more informative feedback is strictly better.
+  \item A methodological note, confirmed rather than assumed: an initial,
+    unmodified refinement prompt found \emph{zero} divergence across three
+    full seeded runs despite driving up unrelated rejection counts; a
+    principled prompt revision that isolates divergence as an explicit
+    score, validated on a held-out seed before any further spend, recovered
+    a nonzero and consistent effect. Reporting the failed first design
+    alongside the fix is itself part of this contribution.
+  \item Two concrete, practitioner-actionable defects (RQ3 and part of
+    RQ2), found by a static generator with no LLM involved and confirmed at
+    scale by re-analyzing already-collected campaign data rather than
+    running a redundant pipeline: \texttt{built\_value} silently defaults a
+    missing list-typed required field instead of rejecting the input, and
+    \texttt{json\_serializable}/\texttt{freezed} silently saturate an
+    out-of-range integer field to \texttt{int64::MIN}/\texttt{MAX} with no
+    exception, at a measured 5.7\% mismatch rate across 43{,}336 sampled
+    checks spanning every nesting depth the schema's recursion produced.
+  \item A released pipeline, harness, and full campaign artifact set,
+    reusing the original project's sandboxing, seeding, and
+    reproducibility-manifest machinery entirely unmodified where it is not
+    C- or format-specific, and documenting precisely where it needed to
+    change and where it did not.
+\end{itemize}
+
+The rest of the paper is organized as follows.
+Section~\ref{sec:related-work} situates this work relative to coverage-guided,
+grammar-based, differential, and LLM-assisted testing.
+Section~\ref{sec:methodology} describes the oracle design, the four-path
+harness, the generators, and what is reused unmodified from the original
+pipeline. Section~\ref{sec:evaluation} reports all three research questions.
+Section~\ref{sec:discussion} discusses the RQ1/RQ2 contrast, threats to
+validity, and future work. Section~\ref{sec:conclusion} concludes.

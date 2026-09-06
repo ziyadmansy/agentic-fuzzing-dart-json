@@ -1,0 +1,218 @@
+\section{Methodology}
+\label{sec:methodology}
+
+\subsection{Research questions}
+RQ1: reusing the original acceptance-rate proxy and refinement loop
+unmodified in mechanism, does LLM-guided refinement raise the fraction of
+generated documents a Dart JSON decoder accepts as syntactically valid,
+relative to a static grammar-only baseline, the way it did for a native C
+target? RQ2: across four independently-implemented Dart JSON deserialization
+paths, does malformed or boundary-case input surface behavioral divergence,
+and does refinement -- once its prompt is corrected to make divergence the
+explicit objective -- find more of it than a static, schema-aware generator?
+RQ3: does numeric decoding across these paths preserve exact integer values
+at magnitudes JSON permits syntactically but a 64-bit integer type does not,
+and how does this generalize once measured at scale?
+
+\subsection{Target set}
+\label{sec:target-set}
+Four Dart~\cite{dart2026lang} JSON deserialization paths over one shared
+schema (Section~\ref{sec:schema}), chosen for being how a real Flutter
+codebase actually deserializes JSON today, not for novelty: (A)
+hand-written parsing via \texttt{dart:convert}'s \texttt{jsonDecode} plus
+explicit \texttt{as} casts, representing code with no generated safety net;
+(B) \texttt{json\_serializable}~6.14.1~\cite{jsonserializable2026}, the most
+widely used Dart codegen serialization package; (C)
+\texttt{freezed}~4.0.1~\cite{freezed2026}, configured to delegate JSON
+leaf-decoding to \texttt{json\_serializable} so that any B-vs-C divergence
+is attributable to freezed's own contribution (immutability, union
+discrimination) rather than a second independent JSON decoder; (D)
+\texttt{built\_value}~8.13.0~\cite{builtvalue2026}, an
+independently-designed, typed-serializer-based model rather than an
+annotation-and-\texttt{Map}-based one like B/C, and consequently the path
+most likely to diverge for genuinely independent-implementation reasons.
+All four resolve together under one Dart~3.13.2 toolchain with no
+dependency conflicts; exact versions are pinned in a committed lockfile.
+
+\subsection{Shared schema}
+\label{sec:schema}
+One logical record, hand-implemented once per path: \texttt{id} (a bare JSON
+integer, RQ3's target field), \texttt{amount} (a JSON string, carrying text
+byte-for-byte with no numeric coercion by any path, so it cannot exhibit
+RQ3's failure mode -- it exists purely to widen RQ2's perturbation surface),
+\texttt{name} (nullable string), \texttt{status} (one of three enumerated
+string values, chosen to probe unrecognized-enum-value handling), \texttt{tags}
+(a list of strings), and \texttt{child} (one bounded level of recursive
+nesting of the same record).
+
+\subsection{Two coverage-free, crash-free oracles}
+\label{sec:oracles}
+Every generated document passes through a two-stage harness. \textbf{Stage
+one, a shared structural gate}: base64-decode the candidate bytes, decode as
+UTF-8, then attempt \texttt{jsonDecode}. Any failure here -- invalid UTF-8,
+invalid JSON syntax, or a syntactically valid but non-object top-level value
+(a bare array, number, or \texttt{null}, which JSON's grammar permits but no
+path can schema-decode) -- is recorded once, uniformly, since all four paths
+share this exact entry point and would fail identically before ever
+diverging. This has a direct consequence for generator design
+(Section~\ref{sec:generators}): a byte-level, grammar-only mutator can vary
+only what this shared gate tests, so it cannot find divergence by
+construction -- divergence can only exist at the schema stage. \textbf{Stage
+two, four independent schema attempts}, reached only if stage one succeeds:
+each of the four paths attempts to decode the same parsed object,
+independently caught so that one path's exception can never prevent the
+other three from running on the same input. Each result is either
+\emph{accepted}, with a canonical value (Section~\ref{sec:canonical}), or
+\emph{rejected}, with the concrete runtime type of the exception and whether
+that type is \emph{private} -- Dart's leading-underscore naming convention
+marking a class as internal to its defining library, meaning calling code
+cannot name it in a \texttt{catch} clause and must catch a generic
+supertype instead. This operationalizes ``undocumented failure surface''
+mechanically rather than via a hand-maintained list of each package's
+documented exceptions.
+
+From these four records, two divergence-based oracles are computed
+automatically, with no crash required: \textbf{cross-path divergence}
+(RQ2) is \emph{accept/reject} when acceptance status differs across paths,
+or \emph{value} when two or more accepting paths decode to different
+canonical values. \textbf{Numeric round-trip divergence} (RQ3) compares each
+accepting path's canonical \texttt{id} against the exact ground-truth
+integer parsed from the candidate's own source text -- Python's arbitrary-precision
+\texttt{int} serializes exactly via \texttt{json.dumps} with no
+\texttt{float} detour, so ground truth requires no special-cased generation,
+only ordinary integer drawing at a biased range. A genuine process-level
+fault (the harness killed by a signal, or a batch timeout) is this
+pipeline's closest analogue to the original's sanitizer-based crash tier,
+checked around a whole campaign rather than around one input
+(Section~\ref{sec:harness-arch}).
+
+\subsection{Canonical value comparison}
+\label{sec:canonical}
+Comparing decoded values safely requires that comparison itself not
+reintroduce the exact class of error the oracle exists to detect. Each
+path's typed result is converted, once, to a shared representation using
+only Dart primitives -- strings, exact-precision integers, booleans,
+\texttt{null}, and nested maps/lists -- and compared structurally, never as
+a floating-point value. Any reported divergence is therefore real by
+construction, not an artifact of the comparison logic.
+
+\subsection{Harness architecture}
+\label{sec:harness-arch}
+The original pipeline spawns one process per input, which is cheap for a
+single native binary but would be four times as expensive here and
+provides no fault-isolation benefit a memory-safe language cannot already
+give in-process (an exception is caught, not a process-ending fault, unless
+truly fatal). The harness is instead one AOT-compiled, long-lived process
+per campaign, reading newline-delimited JSON requests from stdin -- one
+line per candidate, base64-encoded since a candidate may be invalid UTF-8 by
+design -- and writing one newline-delimited JSON result per line, flushed
+immediately so a driver can still attribute a later process-level fault to
+the correct input despite one process now serving an entire campaign rather
+than one input.
+
+\subsection{Generators}
+\label{sec:generators}
+\textbf{RQ1} reuses the original pipeline's grammar-derived generator
+(the ANTLR grammars-v4 JSON grammar~\cite{antlr2024grammarsv4,parr2013antlr}
+translated by hand into Hypothesis combinators) completely unmodified,
+targeting the shared structural gate directly:
+``accepted'' is defined exactly as the original grammar defines it -- any
+value type at the top level, not only objects -- specifically so this
+research question tests portability of the refinement \emph{mechanism} on a
+like-for-like criterion, not a criterion this paper's own schema happens to
+impose. \textbf{RQ2/RQ3} require a schema-aware generator instead, since
+Section~\ref{sec:oracles}'s shared gate makes a grammar-only mutator
+structurally incapable of finding schema-level divergence: a base
+valid-record generator draws each field at its correct type, with
+\texttt{id} biased toward magnitudes near \texttt{double}'s exact-integer
+boundary and 64-bit integer boundaries; an independently-probable
+perturbation layer then drops a field, substitutes a wrong-but-JSON-valid
+type, nulls a field regardless of nullability, substitutes an out-of-enum
+string, injects an unknown key, or forces deeper recursion than the base
+generator's normal cap. For the LLM-refined arm, the identical
+\texttt{@st.composite def generated\_json(draw) -> bytes} contract is used,
+with a schema description substituted for the grammar text in the prompt
+and, for RQ2, a divergence score (Section~\ref{sec:rq2-prompt}) in place of
+acceptance rate as the quantity the prompt asks the model to maximize.
+
+\subsection{What transfers unmodified from the original pipeline}
+The original project's AST-based sandbox over LLM-authored proposals
+(import restricted to \texttt{hypothesis.strategies}, a blocklist over
+named code-execution/I-O entry points, and a behavioral sanity check that
+the proposal actually produces \texttt{bytes}); its bounded iteration
+budget and error-recovery discipline (a failing proposal consumes an
+iteration slot and its exact error text is fed into the next prompt, rather
+than aborting the run); its Hypothesis reproducibility shim, re-verified
+against the exact pinned Hypothesis version this shim's private internal
+requires (a newer version already lacked the attribute, reproducing the
+original's own documented fragility firsthand); and its per-iteration
+artifact discipline (every prompt, proposal, and result persisted, nothing
+discarded) are all reused with no logic changes, only the target-specific
+campaign runner beneath them replaced. The structural-fingerprint
+diversity proxy is likewise reused verbatim: it is JSON-specific, not
+C-specific, and the format has not changed.
+
+\subsection{RQ2's refinement prompt: a confirmed fix, not a guess}
+\label{sec:rq2-prompt}
+An initial prompt presented the divergence count alongside per-path
+rejection counts in one undifferentiated metrics object, with no relative
+weighting. Across three full seeded runs this produced zero divergence
+despite driving rejection counts up sharply -- confirmed as systematic,
+not run-to-run noise, before any prompt change was made
+(Section~\ref{sec:evaluation-rq2}). The prompt was revised to state an
+explicit numeric score (divergence count over total), to say plainly that a
+high rejection count alone is not the goal, and to add a methodological
+hint -- vary one or two things about an otherwise-valid document rather
+than maximizing how broadly malformed a document looks -- deliberately
+worded to avoid naming the specific fields or outcomes already known by
+hand, so that any resulting discovery would be the loop's own. This fix was
+validated on a single held-out seed before being adopted for the reported
+comparison (Section~\ref{sec:evaluation-rq2}), the same discipline as
+validating a build before spending a full experimental budget on it.
+
+\subsection{Ablation: is the RQ2 gap generation overhead or targeting?}
+\label{sec:ablation-json}
+Section~\ref{sec:oracles}'s sandbox forbids the LLM from importing
+\texttt{json}, forcing it to hand-build JSON text, which is failure-prone.
+To isolate how much of RQ2's gap (Section~\ref{sec:evaluation-rq2}) this
+overhead accounts for versus a genuine targeting shortfall, we ran a second
+$n{=}5$ refined arm under an otherwise-identical sandbox and prompt that
+additionally permits \texttt{import json} and states so explicitly, letting
+the proposer call \texttt{json.dumps} on an ordinary Python structure
+instead of concatenating strings by hand. This is implemented as a
+deliberately separate sandbox module rather than a parameter on the
+original's validator, so the original -- reused unmodified for the main
+RQ1/RQ2 comparison -- is never at risk from this one ablation.
+
+\subsection{Follow-up: category feedback, not just a score}
+\label{sec:category-feedback}
+Section~\ref{sec:ablation-json} established the RQ2 gap is a targeting
+problem, not generation overhead, which raises a direct follow-up: would
+telling the proposer \emph{which categories} of perturbation its
+divergence-causing documents exhibited help it target more effectively
+than the single numeric score alone? Categories -- missing field, null
+override, wrong type, unrecognized enum, boundary-magnitude \texttt{id},
+extra key, deep nesting -- are computed automatically by inspecting each
+divergence-causing document's shape against the schema, independent of
+which generator produced it (the LLM's own generator source is not
+something this pipeline can introspect), and are fed back as counts
+without naming specific fields, preserving Section~\ref{sec:rq2-prompt}'s
+discipline against planting the answer.
+
+\subsection{Experimental design}
+All three research questions use seeded, independent runs (Hypothesis's
+draw stream reseeded once per run via the reproducibility shim above), with
+$n{=}5$ per arm rather than a larger sample: real API spend against a fixed
+budget makes $n{=}5$ the responsible choice here, reported honestly as such
+throughout rather than implied to carry $n{=}15$'s statistical power --
+the same discipline the original project applied to its own smaller-sample
+feedback ablation. RQ1 compares a static baseline (one iteration, the
+grammar generator alone) against five refined runs (five iterations of up
+to 500 examples each, \texttt{gpt-4.1-mini}, temperature 0.2). RQ2 compares
+a static baseline (the schema-aware generator, one campaign of 500
+examples per run) against five refined runs under the corrected prompt.
+RQ3 requires no separate campaign: every schema-evaluated record collected
+for RQ2 already carries each path's canonical \texttt{id} and the
+document's own source text, so RQ3's ground-truth comparison is computed as
+an analysis pass over RQ1/RQ2's existing data rather than a third parallel
+generator/harness/campaign pipeline.

@@ -1,0 +1,10 @@
+# Pinned so that seeded runs are repeatable: src/agentic_fuzzing/seeding.py is
+# coupled to a Hypothesis internal, verified against exactly this version and
+# this CPython (see seeding.py's module docstring; re-verify before bumping).
+hypothesis==6.165.5
+pytest==9.1.1
+# only needed for the LLM-driven refinement loop (RQ1/RQ2/RQ3's --refined arms)
+openai==3.8.0
+# used for the RQ1 exact permutation test (scipy.stats.mannwhitneyu), addressing
+# the original project's own gap 8 (hand-derived p-value) rather than repeating it
+scipy==1.18.1

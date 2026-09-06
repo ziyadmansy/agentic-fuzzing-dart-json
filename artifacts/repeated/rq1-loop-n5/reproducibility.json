@@ -1,0 +1,38 @@
+{
+  "command_line": "scripts/run_dart_rq1_refinement.py --iterations 5 --examples 500 --artifact-dir artifacts/repeated/rq1-loop-n5 --seed 1 --runs 4",
+  "dart_sdk_version": "3.13.2",
+  "examples_per_run": 500,
+  "experiment_type": "rq1_refined",
+  "feedback_mode": "full",
+  "git_branch": "unknown",
+  "git_commit": "unknown",
+  "harness_executable": "/Users/ziyadmansy/agentic-fuzzing-dart-json/build/dart_json_harness",
+  "harness_sha256": "8888e8267b741c1fe97fee71414e344afe361a166256bf01914e1fa15d5079af",
+  "hypothesis_version": "6.165.5",
+  "max_refinement_iterations": 5,
+  "model": "gpt-4.1-mini",
+  "operating_system": "Darwin 25.5.0",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "python_implementation": "CPython",
+  "python_version": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.1.1.101)]",
+  "runs": 4,
+  "seed": 1,
+  "seeds": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "target_versions": {
+    "built_value": "8.13.0",
+    "freezed": "4.0.1",
+    "json_serializable": "6.14.1"
+  },
+  "targets": {
+    "A_manual": null,
+    "B_json_serializable": "json_serializable",
+    "C_freezed": "freezed",
+    "D_built_value": "built_value"
+  },
+  "timestamp": "2026-09-06T07:38:50.520993+00:00"
+}
