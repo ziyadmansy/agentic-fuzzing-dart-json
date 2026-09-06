@@ -248,15 +248,21 @@ memory-safe, multi-implementation target.
 
 ## Citation
 
-If you use this repository, please cite the paper (`paper/main.tex`) or
-this repository directly (see also [`CITATION.cff`](CITATION.cff)):
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22544012.svg)](https://doi.org/10.5281/zenodo.22544012)
+
+If you use this repository, please cite the archived release (see also
+[`CITATION.cff`](CITATION.cff)). The DOI above is the concept DOI — it
+always resolves to the latest archived version; cite a specific version's
+own DOI instead if you need to pin to exactly the artifact you used:
 
 ```bibtex
-@misc{ibrahim2026beyond,
-  author = {Ibrahim, Ziyad Mohammad Mansy},
-  title  = {{Beyond Sanitizers: LLM-Guided Refinement for Differential JSON Deserialization Testing in Dart}},
-  year   = {2026},
-  url    = {https://github.com/ziyadmansy/agentic-fuzzing-dart-json}
+@software{ibrahim2026beyond,
+  author  = {Ibrahim, Ziyad Mohammad Mansy},
+  title   = {{Beyond Sanitizers: LLM-Guided Refinement for Differential JSON Deserialization Testing in Dart}},
+  year    = {2026},
+  version = {1.0.0},
+  doi     = {10.5281/zenodo.22544012},
+  url     = {https://github.com/ziyadmansy/agentic-fuzzing-dart-json}
 }
 ```
 
