@@ -48,7 +48,7 @@ from it. CodaMOSA~\cite{lemieux2023codamosa} invokes an LLM only after
 search-based test generation's coverage plateaus, asking it for example
 test cases to escape the plateau -- i.e., the LLM is invoked \emph{because}
 coverage feedback is available and has stalled. This paper's setting differs
-along the same axis as its predecessor~\cite{mansy2026agentic}: no coverage
+along the same axis as its predecessor~\priorworkcite: no coverage
 signal is available at any point, and the LLM's job is to revise a reusable,
 executable \emph{generator} against feedback a black-box harness can
 actually produce, not to emit one-off inputs.
@@ -70,7 +70,7 @@ narrower and, we find, more failure-prone surface than differential testing
 is usually applied to.
 
 \paragraph{Positioning.} This paper is a direct empirical follow-up to
-\cite{mansy2026agentic}, which evaluated the identical refinement-loop
+\priorworkcite, which evaluated the identical refinement-loop
 mechanism on two independently implemented C JSON parsers under a
 sanitizer-based crash oracle and named a memory-safe target as future work
 along a materially different generalization axis. We take up exactly that

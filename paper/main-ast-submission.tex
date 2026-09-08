@@ -1,0 +1,51 @@
+% Double-blind review copy for AST 2027 (co-located with ICSE 2027, Dublin).
+% Shares every section file with main.tex; the only difference is the
+% author block, which is anonymized here per AST's double-blind policy (no
+% author names, no identifying artifact links), and the explicit 10pt option
+% AST's formatting instructions call for. Restore paper/main.tex's real
+% \author block for the camera-ready version after acceptance -- do not edit
+% content sections in this file, edit the shared .tex files instead.
+\documentclass[10pt,conference]{IEEEtran}
+
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{tabularx}
+
+% Anonymized self-citation to the companion paper (see references.bib) --
+% do not cite mansy2026agentic here, it deanonymizes this submission.
+\newcommand{\priorworkcite}{\cite{anon2026grammarfuzzing}}
+
+\hypersetup{pdfauthor={},pdftitle={Beyond Sanitizers: LLM-Guided Refinement for Differential JSON Deserialization Testing in Dart}}
+
+\title{Beyond Sanitizers: LLM-Guided Refinement for Differential JSON Deserialization Testing in Dart}
+
+\author{
+\IEEEauthorblockN{Anonymous Author(s)}
+\IEEEauthorblockA{Submission under double-blind review}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\input{abstract}
+\end{abstract}
+
+\begin{IEEEkeywords}
+fuzzing, differential testing, property-based testing, large language models, JSON deserialization, Dart, Flutter, black-box testing
+\end{IEEEkeywords}
+
+\input{introduction}
+\input{related_work}
+\input{methodology}
+\input{evaluation}
+\input{discussion}
+\input{conclusion}
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}
