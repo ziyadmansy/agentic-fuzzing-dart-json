@@ -4,7 +4,7 @@
     "artifact_dir": "artifacts/repeated/rq2-loop-category-feedback",
     "category_feedback": "True",
     "examples": "500",
-    "executable": "/Users/ziyadmansy/agentic-fuzzing-dart-json/build/dart_json_harness",
+    "executable": "/home/reviewer/agentic-fuzzing-dart-json/build/dart_json_harness",
     "iterations": "5",
     "model": "gpt-4.1-mini",
     "overwrite": "False",

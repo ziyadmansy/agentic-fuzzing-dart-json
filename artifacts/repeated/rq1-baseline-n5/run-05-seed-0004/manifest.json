@@ -2,7 +2,7 @@
   "arguments": {
     "artifact_dir": "artifacts/repeated/rq1-baseline-n5",
     "examples": "500",
-    "executable": "/Users/ziyadmansy/agentic-fuzzing-dart-json/build/dart_json_harness",
+    "executable": "/home/reviewer/agentic-fuzzing-dart-json/build/dart_json_harness",
     "output": "artifacts/rq1_baseline.jsonl",
     "overwrite": "False",
     "runs": "5",

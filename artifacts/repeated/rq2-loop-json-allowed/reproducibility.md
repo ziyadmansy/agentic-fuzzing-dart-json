@@ -5,7 +5,7 @@
 | Experiment type | rq2_refined_json_allowed |
 | Target package versions | json_serializable=6.14.1, freezed=4.0.1, built_value=8.13.0 |
 | Dart SDK version | 3.13.2 |
-| Harness executable | `/Users/ziyadmansy/agentic-fuzzing-dart-json/build/dart_json_harness` |
+| Harness executable | `/home/reviewer/agentic-fuzzing-dart-json/build/dart_json_harness` |
 | Harness SHA-256 | `8888e8267b741c1fe97fee71414e344afe361a166256bf01914e1fa15d5079af` |
 | Python version | 3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.1.1.101)] |
 | Python implementation | CPython |

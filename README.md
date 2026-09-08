@@ -1,6 +1,7 @@
 # Beyond Sanitizers: LLM-Guided Refinement for Differential JSON Deserialization Testing in Dart
 
-Second-paper follow-up to [agentic-grammar-fuzzing](https://github.com/ziyadmansy/agentic-grammar-fuzzing):
+Second-paper follow-up to a prior grammar-fuzzing pipeline (companion
+submission, withheld from this mirror for double-anonymous review):
 that project evaluated an LLM-guided, coverage-free grammar-fuzzing pipeline
 against two independent C JSON parsers under a sanitizer-based crash oracle,
 and named a memory-safe target — where "crash" has no sanitizer-based
@@ -11,12 +12,12 @@ deserialization paths, with the sanitizer-based crash oracle replaced by two
 oracles that need no crash at all — cross-implementation differential
 divergence, and a ground-truth numeric round-trip check.
 
-**Paper:** the full write-up lives under [`paper/`](paper/main.tex) (LaTeX
-source, IEEEtran conference format; build with `tectonic main.tex` or any
-standard LaTeX toolchain) and is archived as a preprint at
-[doi.org/10.5281/zenodo.22555795](https://doi.org/10.5281/zenodo.22555795) —
-see [Results](#results) below for the headline numbers, or the paper itself
-for full methodology, related work, and discussion.
+**Paper:** the full write-up lives under [`paper/`](paper/) (LaTeX source,
+IEEEtran conference format; build with `tectonic main-ast-submission.tex`
+or any standard LaTeX toolchain) — see [Results](#results) below for the
+headline numbers, or the paper itself for full methodology, related work,
+and discussion. (Preprint DOI withheld from this mirror for
+double-anonymous review.)
 
 ## Contents
 
@@ -249,37 +250,7 @@ memory-safe, multi-implementation target.
 
 ## Citation
 
-[![Paper DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22555795.svg)](https://doi.org/10.5281/zenodo.22555795)
-[![Software DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22544011.svg)](https://doi.org/10.5281/zenodo.22544011)
-
-If you use this work, please cite the paper (preferred — see also
-[`CITATION.cff`](CITATION.cff)):
-
-```bibtex
-@article{ibrahim2026beyond,
-  author = {Ibrahim, Ziyad Mohammad Mansy},
-  title  = {{Beyond Sanitizers: LLM-Guided Refinement for Differential JSON Deserialization Testing in Dart}},
-  year   = {2026},
-  doi    = {10.5281/zenodo.22555795}
-}
-```
-
-To cite the software/data artifact itself rather than the paper, use the
-concept DOI above (it always resolves to the latest archived version; cite a
-specific version's own DOI instead if you need to pin to exactly the
-artifact you used):
-
-```bibtex
-@software{ibrahim2026beyonddata,
-  author  = {Ibrahim, Ziyad Mohammad Mansy},
-  title   = {{Beyond Sanitizers: LLM-Guided Refinement for Differential JSON Deserialization Testing in Dart}},
-  year    = {2026},
-  version = {1.0.0},
-  doi     = {10.5281/zenodo.22544011},
-  url     = {https://github.com/ziyadmansy/agentic-fuzzing-dart-json}
-}
-```
-
----
-
-**Author:** Ziyad Mohammad Mansy Ibrahim — ziyadmohammad37@gmail.com — [ORCID](https://orcid.org/0009-0008-3499-3828)
+**Citation and author information withheld from this mirror for
+double-anonymous review.** (DOI badges and citation metadata resolve to a
+record identifying the author, so they are omitted here rather than
+partially redacted.)
