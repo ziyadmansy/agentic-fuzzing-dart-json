@@ -18,6 +18,10 @@ __pycache__/
 /artifacts/*.reproducibility.json
 /artifacts/*.reproducibility.md
 
+# LaTeX build output (regenerate with: tectonic paper/main.tex) -- contains
+# the real author block, unlike the tracked anonymized submission copies.
+paper/main.pdf
+
 # OS
 .DS_Store
 
