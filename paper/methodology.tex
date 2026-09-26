@@ -199,6 +199,26 @@ something this pipeline can introspect), and are fed back as counts
 without naming specific fields, preserving Section~\ref{sec:rq2-prompt}'s
 discipline against planting the answer.
 
+\subsection{Follow-up: mutating the previous generator instead of rewriting it}
+\label{sec:mutate-source}
+Section~\ref{sec:category-feedback} ruled out richer feedback as the fix,
+raising a structural follow-up: every refined arm above, including
+category-feedback, discards the proposer's previous-iteration generator and
+starts each prompt from scratch. We implemented a variant that instead
+shows the proposer its own previous iteration's generator source and
+instructs it to revise that incrementally. A first held-out-seed check
+(no additional safeguard) showed this is risky on its own: a buggy revision
+introduced partway through a run persisted for the rest of it, since the
+loop kept mutating forward from the flawed source rather than discarding
+it. We added a guard -- if an iteration's fraction of syntactically valid
+output drops more than 10 percentage points below the best fraction reached
+so far in that run (including after a proposal that fails to execute at
+all), the next iteration mutates from that best-known source instead of the
+regressed one, with a note telling the proposer what regressed. The same
+held-out seed, re-run with the guard, validated promisingly before the
+$n{=}5$ comparison (Section~\ref{sec:evaluation-mutate-source}), the same
+discipline as validating the original RQ2 prompt fix.
+
 \subsection{Experimental design}
 All three research questions use seeded, independent runs (Hypothesis's
 draw stream reseeded once per run via the reproducibility shim above), with

@@ -35,7 +35,17 @@ measurably \emph{worse} divergence rate (0.95\% mean, $p \approx 0.032$
 against the score-only prompt, holding under a check restricted to
 schema-evaluated documents), a genuine negative data point against the
 assumption that more informative feedback is strictly better for this
-task.
+task. A third, structural follow-up tested whether letting the proposer
+mutate its own previous generator source, instead of discarding it every
+iteration as every arm above does, closes the gap -- and, after a guard
+against a compounding-bug failure mode a held-out seed exposed, validated
+promisingly on that one seed (5.33\% mean) but did not replicate at
+$n{=}5$ (1.73\% mean, statistically indistinguishable from both the
+score-only prompt at $p \approx 0.31$ and category-feedback at $p \approx
+0.69$). Three independent structural or prompting interventions landing in
+the same regime is, we argue, stronger evidence than any one of them alone
+that the RQ2 targeting gap is a genuine limitation of LLM-guided mutation
+for this objective.
 
 Two concrete, practitioner-actionable defects fell out of the static
 generator's own campaigns, independent of any LLM: \texttt{built\_value}
@@ -51,10 +61,11 @@ identifiers, independent of anything this paper argues about LLM-guided
 refinement.
 
 We release the full pipeline -- the four-path Dart harness, both
-generators, the refinement loop and both its corrected prompt and its
-category-feedback variant, and every campaign artifact underlying
-Tables~\ref{tab:rq1}, \ref{tab:rq2}, \ref{tab:ablation},
-\ref{tab:category-feedback}, and \ref{tab:rq3} -- so that the RQ1/RQ2
-contrast, the two follow-ups on the RQ2 gap, the RQ3 saturation pattern,
-and the two concrete defects can all be checked, extended to a larger
-sample, or falsified directly rather than taken on faith.\footnote{\url{\artifacturl}}
+generators, the refinement loop and its corrected prompt,
+category-feedback variant, and mutate-source variant, and every campaign
+artifact underlying Tables~\ref{tab:rq1}, \ref{tab:rq2}, \ref{tab:ablation},
+\ref{tab:category-feedback}, \ref{tab:mutate-source}, and \ref{tab:rq3} --
+so that the RQ1/RQ2 contrast, the three follow-ups on the RQ2 gap, the RQ3
+saturation pattern, and the two concrete defects can all be checked,
+extended to a larger sample, or falsified directly rather than taken on
+faith.\footnote{\url{\artifacturl}}

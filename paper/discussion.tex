@@ -57,6 +57,30 @@ that richer feedback is strictly better, not as a settled explanation of
 why: at $n{=}5$ we can establish the direction of the effect, not its
 mechanism.
 
+The natural next hypothesis was structural rather than textual: instead of
+discarding the proposer's own generator every iteration (which every arm
+above does, unmodified from the original pipeline), let it mutate its
+previous iteration's source directly
+(Section~\ref{sec:evaluation-mutate-source}). A held-out seed validated
+under the same discipline as the original RQ2 prompt fix looked
+promising (5.33\% divergence, beating every prior arm's per-run range on
+the schema-evaluated metric) after we added a guard against a failure mode
+that same seed first exposed -- an unfixed bug compounding across
+iterations once the proposer starts from a flawed prior version rather than
+a blank prompt. It did not replicate at $n{=}5$: mean 1.73\%, statistically
+indistinguishable from both the score-only prompt ($p \approx 0.31$) and
+category-feedback ($p \approx 0.69$). The held-out seed's strength turned
+out to be optimistic variance -- it cleared an early failure quickly and
+had a clean run of iterations to compound on, while several of the five
+real seeds spent most or all of their iteration budget recovering from
+proposal failures instead of refining. We take three independent
+structural or prompting interventions landing in the same
+statistically-indistinguishable, still-order-of-magnitude-below-baseline
+regime as stronger evidence than any one of them alone that the RQ2
+targeting gap is a genuine limitation of LLM-guided mutation for this
+objective -- not a prompt or loop-structure detail one more idea away from
+closing it.
+
 \subsection{The value of reporting a corrected prompt, not just a final one}
 Section~\ref{sec:rq2-prompt}'s prompt fix is itself worth discussing as a
 methodological point independent of its numeric effect. The unmodified
@@ -127,22 +151,26 @@ private-exception classification) would be the applicable choice instead.
 \subsection{Future work}
 \label{sec:future-work}
 Several extensions follow directly from what this study measured but did
-not have budget to pursue further. First, since neither the score-only
-prompt nor the richer category-feedback prompt
-(Section~\ref{sec:category-feedback}) closed the RQ2 gap -- and the latter
-did measurably worse -- the open question is no longer "what feedback
-helps" but whether the proposer's difficulty is better addressed
-structurally: for instance, letting it retain and mutate its
-\emph{previous} iteration's generator source rather than rewriting from
-scratch each time (this pipeline's loop, reused unmodified from the
-original, always discards the prior proposal), or giving it a small library
-of worked examples of divergence-causing perturbations applied to an
-unrelated schema, rather than more description of the current one. Second,
-a larger-$n$ replication of RQ1, RQ2, and both
-Section~\ref{sec:ablation-json}/\ref{sec:category-feedback} follow-ups,
-budget permitting, would tighten the exact $p$-values reported here past
-what $n{=}5$ can produce, the same way the original study's own $n{=}15$
-result tightened its earlier smaller-sample finding. Third, the qualitative
+not have budget to pursue further. First, three independent attempts at
+closing the RQ2 gap -- richer feedback (Section~\ref{sec:category-feedback}),
+and mutate-not-rewrite refinement with a revert-on-regression guard
+(Section~\ref{sec:evaluation-mutate-source}) -- all land in the same
+statistically-indistinguishable-from-each-other, still-order-of-magnitude-
+below-baseline regime, so the open question is no longer "what feedback or
+loop structure helps" but whether the gap is closable by prompt or
+loop-structure changes at all versus requiring a materially different
+proposer strategy (e.g.\ a small library of worked examples of
+divergence-causing perturbations applied to an unrelated schema, tried once
+as a few-shot addition rather than iteratively, or a non-LLM search
+component driving the mutation instead of the proposer alone). Second,
+a larger-$n$ replication of RQ1, RQ2, and all three
+Section~\ref{sec:ablation-json}/\ref{sec:category-feedback}/\ref{sec:evaluation-mutate-source}
+follow-ups, budget permitting, would tighten the exact $p$-values reported
+here past what $n{=}5$ can produce, the same way the original study's own
+$n{=}15$ result tightened its earlier smaller-sample finding -- mutate-
+source in particular showed high per-run variance (stdev 2.05, on a par
+with its own mean) that a larger sample would characterize far better than
+$n{=}5$ can. Third, the qualitative
 union side study (Section~\ref{sec:evaluation-union}) found a real
 exception-type difference between \texttt{freezed} and
 \texttt{json\_serializable} on thirteen hand-picked documents but was not

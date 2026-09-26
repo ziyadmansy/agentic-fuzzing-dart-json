@@ -45,10 +45,21 @@ def main() -> None:
         action="store_true",
         help="follow-up (paper Future Work): feed back divergence perturbation categories, not just a score",
     )
+    parser.add_argument(
+        "--mutate-source",
+        action="store_true",
+        help=(
+            "structural follow-up (paper Future Work): show the proposer its own previous "
+            "iteration's generator source and ask it to revise it, instead of discarding it "
+            "and starting from scratch each iteration"
+        ),
+    )
     args = parser.parse_args()
 
     if args.runs < 1:
         raise SystemExit("--runs must be at least 1")
+    if args.category_feedback and args.mutate_source:
+        raise SystemExit("--category-feedback and --mutate-source are separate arms; pick one")
 
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
@@ -80,6 +91,7 @@ def main() -> None:
             timeout_seconds=args.timeout,
             allow_json=args.allow_json,
             category_feedback=args.category_feedback,
+            mutate_source=args.mutate_source,
         )
         for index, summary in enumerate(summaries, start=1):
             print(f"iteration-{index}: {summary.as_dict()}")
@@ -90,6 +102,8 @@ def main() -> None:
             experiment_type = "rq2_refined_json_allowed"
         elif args.category_feedback:
             experiment_type = "rq2_refined_category_feedback"
+        elif args.mutate_source:
+            experiment_type = "rq2_refined_mutate_source"
         else:
             experiment_type = "rq2_refined"
         report = build_report(

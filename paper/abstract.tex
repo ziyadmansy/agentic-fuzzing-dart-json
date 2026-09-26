@@ -33,7 +33,16 @@ proposer which categories of perturbation its divergent documents exhibited,
 rather than a single score, performs measurably \emph{worse} ($0.95\%$
 mean, $p \approx 0.032$ against the score-only prompt), a genuine data
 point against the assumption that more informative feedback is strictly
-better for this task. The static generator's own campaigns surface two concrete,
+better for this task. A structural follow-up -- letting the proposer mutate
+its own previous generator source instead of discarding it every iteration,
+with a guard against the compounding-bug failure mode a first held-out seed
+exposed -- looked promising on that one seed but did not replicate at
+$n{=}5$ (1.73\% mean, statistically indistinguishable from both the
+score-only prompt at $p \approx 0.31$ and category-feedback at $p \approx
+0.69$): three independent interventions now land in the same regime, evidence
+the RQ2 gap is a genuine limitation of LLM-guided mutation for this
+objective rather than one prompt or loop-structure idea away from closing.
+The static generator's own campaigns surface two concrete,
 practitioner-actionable defects independent of any
 LLM: \texttt{built\_value} silently defaults a missing list-typed required
 field to empty rather than rejecting the input, while

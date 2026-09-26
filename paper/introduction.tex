@@ -94,6 +94,15 @@ paper contributes:
     \emph{worse} divergence rate (0.95\% mean, $p \approx 0.032$ against the
     score-only prompt), a genuine negative data point against the
     assumption that more informative feedback is strictly better.
+  \item A third, structural follow-up -- mutating the proposer's own
+    previous generator source instead of discarding it every iteration,
+    with a revert-on-regression guard added after a held-out seed exposed a
+    compounding-bug failure mode -- validated promisingly on that one seed
+    but did not replicate at $n{=}5$ (1.73\% mean, statistically
+    indistinguishable from both the score-only prompt at $p \approx 0.31$
+    and category-feedback at $p \approx 0.69$), strengthening the case that
+    the RQ2 gap is a genuine limitation rather than one idea away from
+    closing.
   \item A methodological note, confirmed rather than assumed: an initial,
     unmodified refinement prompt found \emph{zero} divergence across three
     full seeded runs despite driving up unrelated rejection counts; a

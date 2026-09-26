@@ -1,0 +1,240 @@
+```python
+from hypothesis import strategies as st
+
+@st.composite
+def generated_json(draw) -> bytes:
+    # Constants for status field
+    statuses = ["active", "inactive", "unknown"]
+
+    # Helper to produce a JSON string literal with proper escaping of " and \
+    def json_string_literal(s: str) -> str:
+        # Minimal escaping: replace \ and " with escaped versions
+        s = s.replace("\\", "\\\\").replace('"', '\\"')
+        # Also escape control characters (at least newline and tab)
+        s = s.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+        return f'"{s}"'
+
+    # Recursive generator for the "child" field, with depth limit 1
+    def record(depth: int) -> st.SearchStrategy[str]:
+        # id: integer, but also try some edge cases as strings or floats to induce divergence
+        # (some implementations might accept only int, others might parse numeric strings)
+        id_int_strat = st.integers(min_value=-(2**31), max_value=2**31-1).map(str)
+        id_str_strat = st.text(min_size=1, max_size=5).filter(lambda s: s.isdigit() or (s.startswith('-') and s[1:].isdigit()))
+        # Also try id as a float string (e.g. "123.0") or as a JSON number (without quotes)
+        # Restrict floats to integral values or simple decimals to reduce broad rejection
+        id_float_strat = st.one_of(
+            st.floats(allow_infinity=False, allow_nan=False, width=32).filter(lambda f: f == int(f)).map(lambda f: str(f)),
+            st.just("123.0"),
+            st.just("0.0"),
+            st.just("-0.0"),
+        )
+        # Compose id as either integer literal (number), or string literal (quoted)
+        # To maximize divergence, sometimes produce id as a JSON string (quoted), sometimes as number
+        id_as_number = st.one_of(id_int_strat, id_float_strat)
+        id_as_string = id_str_strat.map(json_string_literal)
+        # Choose either number or string for id field
+        id_choice = st.one_of(id_as_number, id_as_string)
+
+        # amount: string, but try some edge cases (empty, numeric strings, weird chars)
+        # Add some numeric strings without quotes to test divergence on amount type acceptance
+        # But amount must be string per schema, so only quoted strings here to keep valid JSON
+        amount_strat = st.one_of(
+            st.text(min_size=0, max_size=10),
+            st.integers(min_value=-10000, max_value=10000).map(str),
+            st.just("0"),
+            st.just(""),
+            st.just("NaN"),
+            st.just("Infinity"),
+            st.just("-Infinity"),
+            st.just("123.456"),
+        )
+
+        # name: string or null, but also try empty string, whitespace, or unusual unicode
+        # Add a numeric string as name to test divergence on string content
+        name_strat = st.one_of(
+            st.none(),
+            st.text(min_size=0, max_size=10),
+            st.just(""),
+            st.just(" "),
+            st.just("\u0000"),  # null char
+            st.just("\u2028"),  # line separator
+            st.just("\u2029"),  # paragraph separator
+            st.just("123"),     # numeric string as name
+        )
+
+        # status: one of the three strings, but also try wrong casing or similar strings
+        # Add empty string and null to test divergence on enum field acceptance
+        status_strat = st.one_of(
+            st.sampled_from(statuses),
+            st.sampled_from([s.upper() for s in statuses]),
+            st.sampled_from([s.capitalize() for s in statuses]),
+            st.just("active "),  # trailing space
+            st.just("inactive\n"),  # newline
+            st.just("unknown?"),
+            st.just(""),          # empty string
+            st.just("null"),      # string "null"
+        )
+
+        # tags: array of strings, try empty array, array with empty string, or weird strings
+        # Add possibility of tags containing null (as string "null") or empty strings
+        tags_strat = st.lists(
+            st.one_of(
+                st.text(min_size=0, max_size=5),
+                st.just(""),
+                st.just(" "),
+                st.just("\u0000"),
+                st.just("\n"),
+                st.just("null"),
+            ),
+            min_size=0,
+            max_size=5,
+        )
+
+        # child: either null or a nested record (only one level deep)
+        if depth >= 1:
+            child_strat = st.just("null")
+        else:
+            # To induce divergence, sometimes produce child as null, sometimes as a record,
+            # sometimes as an empty object {}, or as an object with all fields but with one field type off
+            # Add an empty object {} to test rejection divergence
+            # Add a child record with one field type off to test partial malformation divergence
+            def child_with_one_field_wrong_type() -> st.SearchStrategy[str]:
+                # Pick one field to have wrong type
+                fields = ["id", "amount", "name", "status", "tags", "child"]
+
+                def build_wrong_field_json(wrong_field: str) -> st.SearchStrategy[str]:
+                    # Generate normal fields except wrong_field
+                    def gen_field(field: str) -> st.SearchStrategy[str]:
+                        if field == "id":
+                            # id as number (int) string literal or number literal
+                            return st.one_of(
+                                st.integers(min_value=-(2**31), max_value=2**31-1).map(str),
+                                st.text(min_size=1, max_size=5).filter(lambda s: s.isdigit() or (s.startswith('-') and s[1:].isdigit())).map(json_string_literal),
+                            )
+                        elif field == "amount":
+                            return amount_strat.map(json_string_literal)
+                        elif field == "name":
+                            return st.one_of(
+                                st.none().map(lambda _: "null"),
+                                st.text(min_size=0, max_size=10).map(json_string_literal),
+                            )
+                        elif field == "status":
+                            return st.sampled_from(statuses).map(json_string_literal)
+                        elif field == "tags":
+                            return st.lists(st.text(min_size=0, max_size=5), min_size=0, max_size=3).map(
+                                lambda lst: "[" + ",".join(json_string_literal(t) for t in lst) + "]"
+                            )
+                        elif field == "child":
+                            return st.just("null")
+                        else:
+                            return st.just("null")
+
+                    # For wrong_field, produce a value of wrong type:
+                    # id: string "wrong" (non-numeric)
+                    # amount: number literal (not string)
+                    # name: number literal (not string or null)
+                    # status: number literal (not string)
+                    # tags: string literal (not array)
+                    # child: string literal (not object or null)
+                    wrong_value_strat = {
+                        "id": st.just(json_string_literal("wrong")),
+                        "amount": st.integers(min_value=0, max_value=100).map(str),
+                        "name": st.integers(min_value=0, max_value=100).map(str),
+                        "status": st.integers(min_value=0, max_value=100).map(str),
+                        "tags": st.just(json_string_literal("not_an_array")),
+                        "child": st.just(json_string_literal("not_an_object")),
+                    }[wrong_field]
+
+                    # Compose JSON object string with one wrong field
+                    return st.tuples(
+                        *(wrong_value_strat if f == wrong_field else gen_field(f) for f in fields)
+                    ).map(
+                        lambda vals: (
+                            "{" +
+                            f'"id":{vals[0]},'
+                            f'"amount":{vals[1]},'
+                            f'"name":{vals[2]},'
+                            f'"status":{vals[3]},'
+                            f'"tags":{vals[4]},'
+                            f'"child":{vals[5]}'
+                            "}"
+                        )
+                    )
+
+                return st.sampled_from(fields).flatmap(build_wrong_field_json)
+
+            # Add a new divergence-inducing child variant:
+            # child as an object missing one required field (e.g. omit "status")
+            def child_missing_one_field() -> st.SearchStrategy[str]:
+                fields = ["id", "amount", "name", "status", "tags", "child"]
+                # Pick one field to omit (except "child" to keep recursion sane)
+                omit_field = draw(st.sampled_from(fields[:-1]))
+                def gen_field(field: str) -> st.SearchStrategy[str]:
+                    if field == "id":
+                        return st.one_of(
+                            st.integers(min_value=-(2**31), max_value=2**31-1).map(str),
+                            st.text(min_size=1, max_size=5).filter(lambda s: s.isdigit() or (s.startswith('-') and s[1:].isdigit())).map(json_string_literal),
+                        )
+                    elif field == "amount":
+                        return amount_strat.map(json_string_literal)
+                    elif field == "name":
+                        return st.one_of(
+                            st.none().map(lambda _: "null"),
+                            st.text(min_size=0, max_size=10).map(json_string_literal),
+                        )
+                    elif field == "status":
+                        return st.sampled_from(statuses).map(json_string_literal)
+                    elif field == "tags":
+                        return st.lists(st.text(min_size=0, max_size=5), min_size=0, max_size=3).map(
+                            lambda lst: "[" + ",".join(json_string_literal(t) for t in lst) + "]"
+                        )
+                    elif field == "child":
+                        return st.just("null")
+                    else:
+                        return st.just("null")
+
+                # Compose JSON object string with one field omitted
+                # We build a tuple of (field, value) for all fields except omit_field
+                included_fields = [f for f in fields if f != omit_field]
+                # Generate values for included fields
+                vals = [draw(gen_field(f)) for f in included_fields]
+                # Compose JSON string
+                json_fields = ",".join(f'"{f}":{v}' for f, v in zip(included_fields, vals))
+                return st.just("{" + json_fields + "}")
+
+            child_strat = st.one_of(
+                st.just("null"),
+                record(depth + 1),
+                st.just("{}"),
+                child_with_one_field_wrong_type(),
+                child_missing_one_field(),
+            )
+
+        # Compose the JSON object string with fields in fixed order for consistency
+        def build_json_obj(
+            id_s, amount_s, name_s, status_s, tags_s, child_s
+        ) -> str:
+            # id: either number literal or string literal (already prepared)
+            id_json = id_s
+
+            # amount: string literal
+            amount_json = json_string_literal(amount_s)
+
+            # name: null or string literal
+            if name_s is None:
+                name_json = "null"
+            else:
+                name_json = json_string_literal(name_s)
+
+            # status: string literal (even if invalid)
+            status_json = json_string_literal(status_s)
+
+            # tags: array of string literals
+            tags_json = "[" + ",".join(json_string_literal(t) for t in tags_s) + "]"
+
+            # child: either "null" or nested JSON object string
+            child_json = child_s
+
+            return (
+                "{"
+                + f'"id":{id_json},'

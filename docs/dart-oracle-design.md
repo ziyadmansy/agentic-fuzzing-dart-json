@@ -911,6 +911,71 @@ Discussion §A extended, Future Work rewritten, Conclusion updated.
 Compiled clean, 9 pages. Estimated additional spend for this experiment:
 ~25 API calls ≈ $0.34.
 
+## 16. Follow-up: mutate-not-rewrite refinement, with a revert-on-regression guard (tested, negative result)
+
+**Status (2026-09-21): done, real API spend, third negative result on the
+RQ2 gap.** Section 14 sharpened future work toward structural changes over
+more descriptive prompting, specifically: letting the loop retain and mutate
+its previous iteration's generator source instead of discarding it and
+starting from a blank prompt every iteration (which `run_refinement_loop`
+had always done, unmodified from the original project, in every arm
+including category-feedback). Implementation: `build_refinement_prompt`
+gained `previous_source: str | None` (shown to the proposer as its own prior
+generator, with an instruction to revise incrementally rather than rewrite)
+and `regression_note: str | None`; `run_refinement_loop` gained
+`mutate_source: bool` (default `False`, existing behavior untouched) and
+tracks `last_source`/`best_source`/`best_schema_fraction` across iterations.
+CLI: `--mutate-source` on `run_dart_rq2_refinement.py`.
+
+A first held-out-seed smoke test (seed 300, naive version with no guard)
+showed *why* naive mutation is risky: iterations 1-2 reached 100%
+syntactically-valid output, but iteration 3's mutation introduced a bug in
+the `name`-field branch that broke JSON syntax for ~27-30% of output --
+and because the loop kept mutating forward from that flawed source, the bug
+persisted through iteration 5 rather than being fixed or discarded. Best
+divergence over the whole run: 0.76% over all documents -- below every
+prior arm's range, not a promising smoke result.
+
+Added a revert-on-regression guard in response
+(`_MUTATE_SOURCE_REGRESSION_THRESHOLD = 0.10`): if an iteration's
+schema-evaluated fraction drops more than 10 percentage points below the
+best fraction reached so far this run (including after a proposal that
+crashes outright), the *next* iteration mutates from that best-known source
+instead of the regressed one, with a `regression_note` telling the proposer
+what regressed and that it is working from an earlier version again.
+Re-running the same held-out seed 300 with the guard produced a much
+stronger single-seed result -- 5.33% over all documents, 10.91% over
+schema-evaluated documents, beating every prior arm's entire per-run range
+on the schema-evaluated metric -- which looked like a genuine fix and
+justified spending on the full $n{=}5$ comparison (fresh seeds 400-404,
+disjoint from the smoke seed).
+
+It did not replicate. Per-run divergence over all documents: 0.0, 2.93,
+4.75, 0.65, 0.30 (mean 1.73%, stdev 2.05). Exact two-sided Mann-Whitney U
+against the score-only arm (2.93% mean): $p \approx 0.31$. Against
+category-feedback (0.95% mean): $p \approx 0.69$. **Statistically
+indistinguishable from both existing refined arms**, still decisively below
+the static baseline ($p \approx 0.00794$, same complete separation every
+refined arm shows). The seed-300 smoke result was optimistic variance, not
+signal: it got an early crash out of the way fast and then two clean
+iterations to compound on; four of the five real-campaign seeds were less
+lucky (run-01/seed-400 crashed on 4 of its 5 iterations on the same
+pre-existing stochastic proposer failure already visible in the
+category-feedback logs -- "returns example data instead of a Hypothesis
+strategy" -- leaving only one usable iteration and 0% divergence). This
+exposes a real structural weakness of mutate-source specifically: a run's
+entire capacity to compound improvements depends on reaching one working
+base early, and a run that doesn't is left with little to no signal
+regardless of how good the guard is.
+
+Taken with Section 14, this is now a third independent structural/prompting
+intervention landing in the same regime: statistically indistinguishable
+from the other refined arms, an order of magnitude below the static
+baseline. Reported in the paper as strengthening evidence that the RQ2
+targeting gap is a genuine limitation of LLM-guided mutation for this
+objective, not an engineering detail away from being closed by the next
+prompt or loop-structure idea.
+
 ## 15. Side study: does `freezed` ever diverge from `json_serializable`?
 
 **Status (2026-09-06): done, qualitative, no LLM/API cost.** Addresses the

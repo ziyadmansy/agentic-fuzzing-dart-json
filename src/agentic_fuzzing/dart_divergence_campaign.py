@@ -19,6 +19,16 @@ from . import proposal_relaxed
 
 _PATH_ORDER = ("A_manual", "B_json_serializable", "C_freezed", "D_built_value")
 
+# `mutate_source`'s revert-on-regression guard (added after a held-out seed,
+# artifacts/repeated/rq2-loop-mutate-source-smoke, showed the schema-evaluated
+# fraction drop from 100% to ~70% starting iteration 3 and never recover --
+# the proposer bolted a buggy branch onto its own prior generator and kept
+# mutating forward from it rather than fixing or discarding it). A drop in
+# schema-evaluated fraction larger than this, relative to the best fraction
+# seen so far this run, reverts `last_source` to that best-known source for
+# the next iteration instead of the just-produced (regressed) one.
+_MUTATE_SOURCE_REGRESSION_THRESHOLD = 0.10
+
 
 def run_campaign(
     executable: str,
@@ -273,6 +283,8 @@ def build_refinement_prompt(
     previous_error: str | None = None,
     allow_json: bool = False,
     category_feedback: bool = False,
+    previous_source: str | None = None,
+    regression_note: str | None = None,
 ) -> str:
     """**Revised 2026-09-06** after a confirmed, 3-seed finding
     (docs/dart-oracle-design.md Section 10, RQ2 status notes) that the prior
@@ -286,6 +298,18 @@ def build_refinement_prompt(
     matter -- not the specific fields/outcomes already found by hand, since
     naming those would make any resulting "finding" a foregone conclusion
     rather than genuine LLM-driven discovery.
+
+    **Extended (structural follow-up, paper Future Work item 1)**: neither
+    the score-only prompt nor `category_feedback` closed the RQ2 gap, and
+    the latter did measurably worse (docs/dart-oracle-design.md Section 14)
+    -- evidence the limiting factor is not that the proposer lacks
+    information about what tends to work, but the harder difficulty of
+    actually implementing an effective divergence-hunting generator in
+    code. `previous_source`/`mutate_source` addresses that directly: instead
+    of discarding the prior iteration's generator every round (as this loop
+    has always done, unmodified from the original project), it is shown to
+    the proposer with an instruction to revise it incrementally rather than
+    write a new one from scratch.
     """
     score = summary.tier_c_accept_reject + summary.tier_c_value
     other_metrics = {
@@ -298,6 +322,17 @@ def build_refinement_prompt(
         if previous_error
         else ""
     )
+    source_section = (
+        f"""
+Your previous iteration's generator source, for you to revise:
+```python
+{previous_source}
+```
+"""
+        if previous_source
+        else ""
+    )
+    regression_section = f"\n{regression_note}\n" if regression_note else ""
     if category_feedback and summary.divergence_perturbation_categories:
         counts = ", ".join(
             f"{name}: {count}"
@@ -324,6 +359,16 @@ boundary) than on documents that are broadly malformed in many ways at once
 which scores zero. Vary one or two things about an otherwise valid document
 at a time, across many documents, rather than maximizing how unusual any
 single document looks."""
+    if previous_source:
+        return_instruction = """Return the full, revised Python source defining
+`@st.composite def generated_json(draw) -> bytes`. Start from your previous
+iteration's source above and change only what the score and feedback above
+suggest needs to change -- keep whatever part of it is already working
+rather than rewriting the whole generator from scratch."""
+    else:
+        return_instruction = (
+            "Return only Python source defining `@st.composite def generated_json(draw) -> bytes`."
+        )
     return f"""You are refining a Hypothesis strategy to find behavioral divergence between four Dart JSON deserializers.
 
 {SCHEMA_DESCRIPTION}
@@ -340,9 +385,10 @@ it looks.
 Other metrics from that iteration, for context only:
 {json.dumps(other_metrics, sort_keys=True)}
 {error_section}
+{regression_section}
 {strategy_hint}
-
-Return only Python source defining `@st.composite def generated_json(draw) -> bytes`.
+{source_section}
+{return_instruction}
 Emit syntactically valid JSON objects only (invalid JSON syntax is rejected
 identically by all four paths before any of them run, so it cannot score).
 Use bounded recursion and output sizes. The campaign runs at most 500
@@ -361,6 +407,7 @@ def run_refinement_loop(
     timeout_seconds: float = 5.0,
     allow_json: bool = False,
     category_feedback: bool = False,
+    mutate_source: bool = False,
 ) -> list[DivergenceCampaignSummary]:
     """Same bounded-iteration, persist-everything, fall-back-on-failure
     structure as the original project's `refinement.run_refinement_loop`
@@ -376,17 +423,40 @@ def run_refinement_loop(
     *categories* of perturbation (missing field, wrong type, boundary
     value, ...) were present in last iteration's divergence-causing
     documents, without naming the specific fields already known by hand.
-    Both default to False, the main RQ2 comparison, unchanged.
+    ``mutate_source=True`` selects the structural follow-up the
+    category-feedback negative result motivated (docs/dart-oracle-design.md
+    Section 14): show the proposer its own previous iteration's generator
+    source and ask it to revise that incrementally, rather than -- as every
+    prior arm including this one otherwise does -- discarding it and
+    starting from a blank prompt each iteration. It also carries a
+    revert-on-regression guard (`_MUTATE_SOURCE_REGRESSION_THRESHOLD`): if a
+    revision's schema-evaluated fraction drops sharply from the best fraction
+    seen so far this run, the *next* iteration mutates from that best-known
+    source instead of the regressed one, with a note telling the proposer
+    what regressed and that it is working from an earlier version again --
+    otherwise a single buggy revision compounds for the rest of the run
+    (observed directly in the held-out seed that motivated this guard). All
+    three modes default to False, the main RQ2 comparison, unchanged.
     """
     summaries: list[DivergenceCampaignSummary] = []
     last_good = DivergenceCampaignSummary(0, Counter(), Counter(), 0, 0, 0, Counter())
     last_error: str | None = None
+    last_source: str | None = None
+    best_source: str | None = None
+    best_schema_fraction: float = 0.0
+    regression_note: str | None = None
     draw_inputs = proposal_relaxed.proposal_inputs if allow_json else proposal_inputs
     for iteration in range(min(iterations, 5)):
         prompt = build_refinement_prompt(
-            last_good, last_error, allow_json=allow_json, category_feedback=category_feedback
+            last_good,
+            last_error,
+            allow_json=allow_json,
+            category_feedback=category_feedback,
+            previous_source=last_source if mutate_source else None,
+            regression_note=regression_note if mutate_source else None,
         )
         proposal = proposer(prompt)
+        regression_note = None
         iteration_dir = artifact_dir / f"iteration-{iteration + 1}"
         iteration_dir.mkdir(parents=True, exist_ok=True)
         (iteration_dir / "prompt.txt").write_text(prompt, encoding="utf-8")
@@ -405,6 +475,14 @@ def run_refinement_loop(
             error_text = f"{type(error).__name__}: {error}"
             (iteration_dir / "proposal_error.txt").write_text(error_text, encoding="utf-8")
             last_error = error_text
+            if mutate_source and best_source is not None:
+                regression_note = (
+                    "Your previous revision crashed before producing usable data (see the "
+                    "error above). Reverting to your last working version instead of "
+                    "mutating the broken one further -- fix the underlying bug this time "
+                    "rather than repeating the same change."
+                )
+                last_source = best_source
             if result_path.exists() and result_path.stat().st_size > 0:
                 with result_path.open(encoding="utf-8") as result_file:
                     partial = summarize_records(json.loads(line) for line in result_file)
@@ -420,4 +498,21 @@ def run_refinement_loop(
         last_good = summary
         last_error = None
         summaries.append(summary)
+        if mutate_source:
+            schema_fraction = (
+                summary.top_level_counts.get("schema_evaluated", 0) / summary.total if summary.total else 0.0
+            )
+            if best_source is None or schema_fraction >= best_schema_fraction - _MUTATE_SOURCE_REGRESSION_THRESHOLD:
+                last_source = proposal
+                if best_source is None or schema_fraction > best_schema_fraction:
+                    best_source = proposal
+                    best_schema_fraction = schema_fraction
+            else:
+                regression_note = (
+                    f"Your previous revision dropped the fraction of syntactically valid "
+                    f"documents from {best_schema_fraction:.1%} to {schema_fraction:.1%}. "
+                    f"Reverting to the version before that change -- fix the underlying bug "
+                    f"this time instead of repeating the same change."
+                )
+                last_source = best_source
     return summaries

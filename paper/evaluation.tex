@@ -185,6 +185,77 @@ small-sample ($n{=}5$) and reported descriptively for that reason, but it
 is a genuine data point against the intuitive assumption that more
 informative feedback is strictly better for this task.
 
+\subsection{Follow-up: does mutating the previous generator, instead of rewriting it, close the targeting gap?}
+\label{sec:evaluation-mutate-source}
+Section~\ref{sec:evaluation-category-feedback} ruled out the most direct
+fix (more descriptive feedback) and sharpened the open question toward a
+structural one: every refined arm above, including category-feedback,
+discards the previous iteration's generator and starts each prompt from
+scratch, even though the proposer is never told what its own prior code
+looked like. We implemented a \texttt{mutate\_source} loop variant that
+shows the proposer its previous iteration's generator source directly and
+asks it to revise that incrementally rather than rewrite it.
+
+A first held-out-seed check (seed 300, no additional safeguard) showed why
+naive mutation is risky: iterations 1--2 reached 100\% syntactically valid
+output, but iteration 3's revision introduced a bug that broke JSON syntax
+for roughly 27--30\% of subsequent output, and because the loop kept
+mutating forward from that flawed source, the bug persisted rather than
+being fixed or discarded -- 0.76\% divergence over the whole run, below
+every other arm's range. We added a revert-on-regression guard: if an
+iteration's schema-evaluated fraction drops more than 10 percentage points
+below the best fraction reached so far in that run, the next iteration
+mutates from that best-known source instead, with a note telling the
+proposer what regressed. Re-running the same held-out seed with the guard
+produced a stronger single-seed result (5.33\% over all documents, 10.91\%
+over schema-evaluated documents), which we treated as justifying the
+$n{=}5$ comparison below (fresh seeds 400--404, disjoint from the smoke
+seed) under the same held-out-seed validation discipline as
+Section~\ref{sec:evaluation-rq2}'s original prompt fix.
+
+\begin{table}[t]
+\centering
+\footnotesize
+\caption{Follow-up: divergence rate with mutate-not-rewrite refinement and a revert-on-regression guard, $n{=}5$ fresh seeded runs, vs.\ the constrained-sandbox refined arm.}
+\label{tab:mutate-source}
+\begin{tabularx}{\columnwidth}{@{}lX@{}}
+\toprule
+Metric & Value \\
+\midrule
+Mutate-source, per-run (\%) & 0.0, 0.30, 0.65, 2.93, 4.75 \\
+Mutate-source mean (stdev) & 1.73 (2.05) \\
+Constrained-sandbox (score-only) mean (stdev) & 2.93 (1.74) \\
+Category-feedback mean (stdev) & 0.95 (1.05) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+It did not replicate. Mean divergence rate 1.73\%, statistically
+indistinguishable from both the score-only prompt (exact two-sided
+Mann-Whitney U, $p \approx 0.31$) and category-feedback ($p \approx 0.69$),
+while remaining decisively below the static baseline ($p \approx 0.00794$,
+the same complete rank separation every refined arm shows against it). The
+held-out seed's strong result was optimistic variance rather than a
+reproducible effect: it happened to clear its one early proposal failure
+quickly and then had two clean iterations to compound improvements on; four
+of the five $n{=}5$ seeds were less fortunate, and one (seed 400) crashed on
+four of its five iterations on the same pre-existing stochastic proposer
+failure already present in the category-feedback logs (the proposer
+returning a concrete example document instead of a Hypothesis strategy),
+leaving only one usable iteration and 0\% divergence. This surfaces a
+structural weakness specific to mutate-source: a run's entire capacity to
+compound improvement depends on reaching one working generator early, and a
+run that does not is left with little signal regardless of how well the
+guard performs once a base exists.
+
+Taken together with Section~\ref{sec:evaluation-category-feedback}, this is
+now a third independent structural or prompting intervention landing in the
+same regime -- statistically indistinguishable from the other refined arms,
+an order of magnitude below the static baseline -- which we read as
+strengthening evidence that RQ2's targeting gap is a genuine limitation of
+LLM-guided mutation for this objective, not an engineering detail away from
+being closed by the next loop-structure idea.
+
 \subsection{RQ3: does numeric decoding preserve exact values?}
 \label{sec:evaluation-rq3}
 Table~\ref{tab:rq3} reports the ground-truth \texttt{id} comparison
