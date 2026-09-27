@@ -54,19 +54,38 @@ def main() -> None:
             "and starting from scratch each iteration"
         ),
     )
+    parser.add_argument(
+        "--knowledge-parity",
+        action="store_true",
+        help=(
+            "follow-up (paper threat to validity): give the proposer the same prior knowledge the "
+            "static generator's designer had (the 13-case characterization findings), otherwise "
+            "identical to the score-only arm"
+        ),
+    )
+    parser.add_argument(
+        "--lenient-fence-parsing",
+        action="store_true",
+        help=(
+            "also accept a fenced code block followed by prose in the LLM response (off by default, "
+            "so earlier arms stay reproducible; docs/dart-oracle-design.md Section 18)"
+        ),
+    )
     args = parser.parse_args()
 
     if args.runs < 1:
         raise SystemExit("--runs must be at least 1")
-    if args.category_feedback and args.mutate_source:
-        raise SystemExit("--category-feedback and --mutate-source are separate arms; pick one")
+    if sum([args.allow_json, args.category_feedback, args.mutate_source, args.knowledge_parity]) > 1:
+        raise SystemExit(
+            "--allow-json, --category-feedback, --mutate-source and --knowledge-parity are separate arms; pick one"
+        )
 
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         raise SystemExit("OPENAI_API_KEY environment variable is not set")
 
     client = OpenAI(api_key=api_key)
-    proposer = OpenAIProposer(client, model=args.model)
+    proposer = OpenAIProposer(client, model=args.model, lenient_fences=args.lenient_fence_parsing)
     arguments = resolved_arguments(args)
     first_manifest: dict[str, Any] | None = None
 
@@ -92,6 +111,7 @@ def main() -> None:
             allow_json=args.allow_json,
             category_feedback=args.category_feedback,
             mutate_source=args.mutate_source,
+            knowledge_parity=args.knowledge_parity,
         )
         for index, summary in enumerate(summaries, start=1):
             print(f"iteration-{index}: {summary.as_dict()}")
@@ -104,6 +124,8 @@ def main() -> None:
             experiment_type = "rq2_refined_category_feedback"
         elif args.mutate_source:
             experiment_type = "rq2_refined_mutate_source"
+        elif args.knowledge_parity:
+            experiment_type = "rq2_refined_knowledge_parity"
         else:
             experiment_type = "rq2_refined"
         report = build_report(

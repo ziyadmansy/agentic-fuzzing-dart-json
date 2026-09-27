@@ -142,10 +142,8 @@ named code-execution/I-O entry points, and a behavioral sanity check that
 the proposal actually produces \texttt{bytes}); its bounded iteration
 budget and error-recovery discipline (a failing proposal consumes an
 iteration slot and its exact error text is fed into the next prompt, rather
-than aborting the run); its Hypothesis reproducibility shim, re-verified
-against the exact pinned Hypothesis version this shim's private internal
-requires (a newer version already lacked the attribute, reproducing the
-original's own documented fragility firsthand); and its per-iteration
+than aborting the run); its Hypothesis reproducibility shim (pinned to the exact
+Hypothesis version whose private internal it patches); and its per-iteration
 artifact discipline (every prompt, proposal, and result persisted, nothing
 discarded) are all reused with no logic changes, only the target-specific
 campaign runner beneath them replaced. The structural-fingerprint
@@ -165,68 +163,61 @@ high rejection count alone is not the goal, and to add a methodological
 hint -- vary one or two things about an otherwise-valid document rather
 than maximizing how broadly malformed a document looks -- deliberately
 worded to avoid naming the specific fields or outcomes already known by
-hand, so that any resulting discovery would be the loop's own. This fix was
+hand, so that any resulting discovery would be the loop's own. The fix was
 validated on a single held-out seed before being adopted for the reported
-comparison (Section~\ref{sec:evaluation-rq2}), the same discipline as
-validating a build before spending a full experimental budget on it.
+comparison (Section~\ref{sec:evaluation-rq2}).
 
-\subsection{Ablation: is the RQ2 gap generation overhead or targeting?}
-\label{sec:ablation-json}
-Section~\ref{sec:oracles}'s sandbox forbids the LLM from importing
-\texttt{json}, forcing it to hand-build JSON text, which is failure-prone.
-To isolate how much of RQ2's gap (Section~\ref{sec:evaluation-rq2}) this
-overhead accounts for versus a genuine targeting shortfall, we ran a second
-$n{=}5$ refined arm under an otherwise-identical sandbox and prompt that
-additionally permits \texttt{import json} and states so explicitly, letting
-the proposer call \texttt{json.dumps} on an ordinary Python structure
-instead of concatenating strings by hand. This is implemented as a
-deliberately separate sandbox module rather than a parameter on the
-original's validator, so the original -- reused unmodified for the main
-RQ1/RQ2 comparison -- is never at risk from this one ablation.
+\subsection{Follow-up arms on the RQ2 gap}
+\label{sec:ablation-json}\label{sec:category-feedback}\label{sec:mutate-source}
+Five further refined arms, each on fresh seeds disjoint from every other
+run and otherwise identical to the main refined arm, test why refinement
+underperforms on RQ2. \textbf{JSON allowed} (seeds 100--104): the sandbox
+forbids importing \texttt{json}, forcing the LLM to hand-build JSON text; this
+arm permits \texttt{import json} (via a separate sandbox module, so the
+original validator is never modified), isolating generation overhead from
+targeting. \textbf{Category feedback} (seeds 200--204): in addition to the
+score, the prompt reports how many divergence-causing documents exhibited
+each perturbation category -- missing field, null override, wrong type,
+unrecognized enum, boundary-magnitude \texttt{id}, extra key, deep nesting --
+classified automatically from each document's shape and never naming
+specific fields, preserving Section~\ref{sec:rq2-prompt}'s discipline
+against planting the answer. \textbf{Mutate source} (seeds 400--404): every
+other arm discards the previous iteration's generator; this one shows the
+proposer its own previous source and asks it to revise it incrementally.
+Because a held-out seed showed a buggy revision persisting for the rest of
+a run, it carries a revert-on-regression guard: if the syntactically valid
+fraction drops more than 10 percentage points below the run's best so far,
+the next iteration mutates from the best-known source instead, with a note
+telling the proposer what regressed.
 
-\subsection{Follow-up: category feedback, not just a score}
-\label{sec:category-feedback}
-Section~\ref{sec:ablation-json} established the RQ2 gap is a targeting
-problem, not generation overhead, which raises a direct follow-up: would
-telling the proposer \emph{which categories} of perturbation its
-divergence-causing documents exhibited help it target more effectively
-than the single numeric score alone? Categories -- missing field, null
-override, wrong type, unrecognized enum, boundary-magnitude \texttt{id},
-extra key, deep nesting -- are computed automatically by inspecting each
-divergence-causing document's shape against the schema, independent of
-which generator produced it (the LLM's own generator source is not
-something this pipeline can introspect), and are fed back as counts
-without naming specific fields, preserving Section~\ref{sec:rq2-prompt}'s
-discipline against planting the answer.
-
-\subsection{Follow-up: mutating the previous generator instead of rewriting it}
-\label{sec:mutate-source}
-Section~\ref{sec:category-feedback} ruled out richer feedback as the fix,
-raising a structural follow-up: every refined arm above, including
-category-feedback, discards the proposer's previous-iteration generator and
-starts each prompt from scratch. We implemented a variant that instead
-shows the proposer its own previous iteration's generator source and
-instructs it to revise that incrementally. A first held-out-seed check
-(no additional safeguard) showed this is risky on its own: a buggy revision
-introduced partway through a run persisted for the rest of it, since the
-loop kept mutating forward from the flawed source rather than discarding
-it. We added a guard -- if an iteration's fraction of syntactically valid
-output drops more than 10 percentage points below the best fraction reached
-so far in that run (including after a proposal that fails to execute at
-all), the next iteration mutates from that best-known source instead of the
-regressed one, with a note telling the proposer what regressed. The same
-held-out seed, re-run with the guard, validated promisingly before the
-$n{=}5$ comparison (Section~\ref{sec:evaluation-mutate-source}), the same
-discipline as validating the original RQ2 prompt fix.
+\textbf{Knowledge parity} (seeds 500--509)\label{sec:knowledge-parity}: the
+static generator's perturbation catalog was designed after the thirteen-case
+characterization of the four paths, while every refined arm above sees only
+the schema and its score. This arm adds to the score-only prompt exactly what
+that designer knew beforehand, as four plain observations with no generator
+code: invalid JSON is rejected identically by all four paths;
+\texttt{built\_value} accepts a missing \texttt{tags} while the others
+reject it; wrong types, nulls, and unknown enum values are rejected by all
+four, while extra keys and missing nullable fields are accepted by all four;
+and \texttt{json\_serializable}/\texttt{freezed} decode \texttt{id} via
+\texttt{(json['id'] as num).toInt()}, which saturates out-of-range values.
+\textbf{Stronger proposer} (seeds 605--609): the score-only arm with
+\texttt{gpt-4.1} in place of \texttt{gpt-4.1-mini} -- same family, same API
+parameters, not a reasoning model -- testing whether a more capable model
+discovers that knowledge from the score alone. Because \texttt{gpt-4.1}
+routinely appends prose after its fenced code block, which the original
+response parser does not strip (a first run on seeds 600--604 lost 11 of 25
+iterations to this), this arm extracts the first fenced block; the fix is
+opt-in, affected at most 2 iterations of any \texttt{gpt-4.1-mini} arm, and
+favors \texttt{gpt-4.1}. For both arms, seeds, tests, and decision rules were
+fixed in the released design document before any run.
 
 \subsection{Experimental design}
 All three research questions use seeded, independent runs (Hypothesis's
 draw stream reseeded once per run via the reproducibility shim above), with
-$n{=}5$ per arm rather than a larger sample: real API spend against a fixed
-budget makes $n{=}5$ the responsible choice here, reported honestly as such
-throughout rather than implied to carry $n{=}15$'s statistical power --
+$n{=}5$ per arm under a fixed API budget, reported as such throughout --
 the same discipline the original project applied to its own smaller-sample
-feedback ablation. RQ1 compares a static baseline (one iteration, the
+ablation. RQ1 compares a static baseline (one iteration, the
 grammar generator alone) against five refined runs (five iterations of up
 to 500 examples each, \texttt{gpt-4.1-mini}, temperature 0.2). RQ2 compares
 a static baseline (the schema-aware generator, one campaign of 500

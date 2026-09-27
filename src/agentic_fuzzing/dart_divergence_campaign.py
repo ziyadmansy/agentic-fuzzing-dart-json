@@ -278,6 +278,37 @@ _IMPORT_INSTRUCTION_JSON_ALLOWED = (
 )
 
 
+# `knowledge_parity` arm (docs/dart-oracle-design.md Section 17): exactly what
+# the static generator's designer knew before writing `dart_record_strategy.py`
+# -- the three findings of the 13-case characterization
+# (`harness/bin/characterize_exceptions.dart`, design doc Section 8) plus the
+# `id` decoding difference read directly from the generated code -- stated as
+# observations, with no generator code. Everything below predates the static
+# generator; nothing learned from any campaign since is included.
+_KNOWLEDGE_PARITY_SECTION = """What is already known about these four implementations, from a
+hand-run characterization of them before any fuzzing (use it however you
+see fit):
+1. All four receive the output of one shared `jsonDecode` call. Invalid
+   JSON syntax, or a top-level value that is not an object, is rejected
+   identically before any of them runs, so it can never cause disagreement.
+2. When the `tags` field is missing entirely, built_value accepts the
+   document and silently uses an empty list, while manual, json_serializable
+   and freezed reject it. Missing `id`, `amount` or `status` is rejected by
+   all four.
+3. A wrong JSON type for a field, or null for a non-nullable field, was
+   rejected by all four in every case tried (manual, json_serializable and
+   freezed throw a private `_TypeError`; built_value throws its own public
+   `DeserializationError`). An unrecognized `status` string is rejected by
+   all four. An extra unknown top-level key, or a missing nullable `name`
+   or `child`, is accepted by all four.
+4. `id` decoding differs in the generated code: manual (`json['id'] as int`)
+   and built_value require a true Dart int, while json_serializable and
+   freezed decode it as `(json['id'] as num).toInt()`, which also accepts a
+   Dart double. `jsonDecode` turns an integer literal outside the 64-bit
+   range into a double, and `toInt()` on an out-of-range double saturates to
+   the int64 minimum/maximum instead of throwing."""
+
+
 def build_refinement_prompt(
     summary: DivergenceCampaignSummary,
     previous_error: str | None = None,
@@ -285,6 +316,7 @@ def build_refinement_prompt(
     category_feedback: bool = False,
     previous_source: str | None = None,
     regression_note: str | None = None,
+    knowledge_parity: bool = False,
 ) -> str:
     """**Revised 2026-09-06** after a confirmed, 3-seed finding
     (docs/dart-oracle-design.md Section 10, RQ2 status notes) that the prior
@@ -333,6 +365,7 @@ Your previous iteration's generator source, for you to revise:
         else ""
     )
     regression_section = f"\n{regression_note}\n" if regression_note else ""
+    knowledge_section = f"\n{_KNOWLEDGE_PARITY_SECTION}\n" if knowledge_parity else ""
     if category_feedback and summary.divergence_perturbation_categories:
         counts = ", ".join(
             f"{name}: {count}"
@@ -372,7 +405,7 @@ rather than rewriting the whole generator from scratch."""
     return f"""You are refining a Hypothesis strategy to find behavioral divergence between four Dart JSON deserializers.
 
 {SCHEMA_DESCRIPTION}
-
+{knowledge_section}
 YOUR SCORE (from the last iteration that produced usable data): {score} documents
 out of {summary.total} where the four implementations disagreed with each other
 ({summary.tier_c_accept_reject} where one accepted and another rejected,
@@ -408,6 +441,7 @@ def run_refinement_loop(
     allow_json: bool = False,
     category_feedback: bool = False,
     mutate_source: bool = False,
+    knowledge_parity: bool = False,
 ) -> list[DivergenceCampaignSummary]:
     """Same bounded-iteration, persist-everything, fall-back-on-failure
     structure as the original project's `refinement.run_refinement_loop`
@@ -454,6 +488,7 @@ def run_refinement_loop(
             category_feedback=category_feedback,
             previous_source=last_source if mutate_source else None,
             regression_note=regression_note if mutate_source else None,
+            knowledge_parity=knowledge_parity,
         )
         proposal = proposer(prompt)
         regression_note = None
