@@ -1,0 +1,216 @@
+You are refining a Hypothesis strategy to find behavioral divergence between four Dart JSON deserializers.
+
+Record schema (all six fields always present in a well-formed document):
+{
+  "id": <integer>,
+  "amount": <string>,
+  "name": <string or null>,
+  "status": <one of "active", "inactive", "unknown">,
+  "tags": <array of strings>,
+  "child": <Record or null, one level of recursion normally>
+}
+
+Four independent Dart JSON deserializers are run against every document you
+produce: hand-written manual parsing, and three codegen frameworks
+(json_serializable, freezed, built_value). Your goal is to produce documents
+that are syntactically valid JSON objects but make these four
+implementations disagree with each other -- one accepting where another
+rejects, or two accepting but decoding to different values -- or that make
+any of them fail with an undocumented (private, unnameable) exception type
+rather than a clear, catchable one.
+
+YOUR SCORE (from the last iteration that produced usable data): 17 documents
+out of 500 where the four implementations disagreed with each other
+(17 where one accepted and another rejected,
+0 where two accepted but decoded to different values).
+Maximizing this score is the objective. A high rejection count on its own
+(see tier_b_counts below) is not the goal by itself -- a document every
+implementation rejects the same way scores zero, no matter how "malformed"
+it looks.
+
+Other metrics from that iteration, for context only:
+{"tier_b_counts": {"A_manual": 297, "B_json_serializable": 259, "C_freezed": 259}, "top_level_counts": {"schema_evaluated": 500}, "total": 500, "unique_divergence_signatures": 4}
+
+
+Strategy hint: implementations are more likely to disagree on documents that
+are *almost* well-formed with one specific thing off (a field of the wrong
+type, a field missing rather than present-but-wrong, a value at a type
+boundary) than on documents that are broadly malformed in many ways at once
+-- broad malformation tends to make every implementation reject identically,
+which scores zero. Vary one or two things about an otherwise valid document
+at a time, across many documents, rather than maximizing how unusual any
+single document looks.
+
+Your previous iteration's generator source, for you to revise:
+```python
+from hypothesis import strategies as st
+
+@st.composite
+def generated_json(draw) -> bytes:
+    # Constants for status enum
+    statuses = ["active", "inactive", "unknown"]
+
+    # Helper: produce a JSON string literal from a Python string,
+    # escaping only minimal characters for JSON correctness.
+    def json_string(s: str) -> str:
+        # Escape backslash and double quote, and control chars minimally
+        # (Hypothesis strings are unicode, so we must escape properly)
+        # We'll do a minimal escape for \ and " and control chars <0x20
+        def esc_char(c):
+            o = ord(c)
+            if c == '"':
+                return r'\"'
+            elif c == '\\':
+                return r'\\'
+            elif o < 0x20:
+                # Use \u00XX escape for control chars
+                return '\\u%04x' % o
+            else:
+                return c
+        return '"' + ''.join(esc_char(c) for c in s) + '"'
+
+    # Helper: produce JSON text for a string or null, but with a chance to
+    # produce a non-string type to provoke divergence.
+    # We bias heavily to correct type, but sometimes produce a number or bool.
+    def gen_name_field():
+        # 80% string or null, 20% other types (number, bool, empty array)
+        choice = draw(st.floats(min_value=0, max_value=1))
+        if choice < 0.4:
+            # string or null
+            if draw(st.booleans()):
+                # string
+                s = draw(st.text(min_size=0, max_size=20))
+                return json_string(s)
+            else:
+                return "null"
+        elif choice < 0.7:
+            # number as string (invalid type)
+            n = draw(st.integers(min_value=-1000, max_value=1000))
+            return str(n)
+        elif choice < 0.85:
+            # boolean literal (invalid type)
+            return "true" if draw(st.booleans()) else "false"
+        else:
+            # empty array (invalid type)
+            return "[]"
+
+    # Helper: produce JSON text for the "status" field, mostly valid enum,
+    # sometimes invalid string or number to provoke divergence.
+    def gen_status_field():
+        choice = draw(st.floats(min_value=0, max_value=1))
+        if choice < 0.8:
+            # valid enum string
+            s = draw(st.sampled_from(statuses))
+            return json_string(s)
+        elif choice < 0.9:
+            # invalid string
+            s = draw(st.text(min_size=1, max_size=10).filter(lambda x: x not in statuses))
+            return json_string(s)
+        else:
+            # number (invalid type)
+            n = draw(st.integers(min_value=-10, max_value=10))
+            return str(n)
+
+    # Helper: produce JSON text for the "tags" field,
+    # mostly array of strings, sometimes null or wrong type.
+    def gen_tags_field():
+        choice = draw(st.floats(min_value=0, max_value=1))
+        if choice < 0.85:
+            # array of strings (possibly empty)
+            arr = draw(st.lists(st.text(min_size=0, max_size=10), max_size=5))
+            # encode array of JSON strings
+            arr_json = "[" + ",".join(json_string(s) for s in arr) + "]"
+            return arr_json
+        elif choice < 0.95:
+            # null (invalid type)
+            return "null"
+        else:
+            # number (invalid type)
+            n = draw(st.integers(min_value=0, max_value=100))
+            return str(n)
+
+    # Helper: produce JSON text for the "amount" field,
+    # which is a string normally, but sometimes a number or null to provoke divergence.
+    def gen_amount_field():
+        choice = draw(st.floats(min_value=0, max_value=1))
+        if choice < 0.85:
+            # string (could be numeric string)
+            s = draw(st.text(min_size=0, max_size=20))
+            return json_string(s)
+        elif choice < 0.95:
+            # number (invalid type)
+            n = draw(st.integers(min_value=-100000, max_value=100000))
+            return str(n)
+        else:
+            # null (invalid type)
+            return "null"
+
+    # Helper: produce JSON text for the "id" field,
+    # which is an integer normally, but sometimes a string or float to provoke divergence.
+    def gen_id_field():
+        choice = draw(st.floats(min_value=0, max_value=1))
+        if choice < 0.85:
+            # integer
+            n = draw(st.integers(min_value=0, max_value=1000000))
+            return str(n)
+        elif choice < 0.95:
+            # string (invalid type)
+            s = str(draw(st.integers(min_value=0, max_value=1000000)))
+            return json_string(s)
+        else:
+            # float (invalid type)
+            f = draw(st.floats(min_value=0, max_value=1000000))
+            # format float with decimal point
+            return repr(f)
+
+    # Recursive generation of the "child" field, with bounded depth
+    def gen_record(depth: int) -> str:
+        # Compose fields, mostly valid but with some chance of type divergence
+        id_field = gen_id_field()
+        amount_field = gen_amount_field()
+        name_field = gen_name_field()
+        status_field = gen_status_field()
+        tags_field = gen_tags_field()
+
+        # child field: either null or a nested record (one level recursion max)
+        if depth <= 0:
+            child_field = "null"
+        else:
+            # 70% chance null, 30% chance nested record
+            if draw(st.floats(min_value=0, max_value=1)) < 0.7:
+                child_field = "null"
+            else:
+                child_field = gen_record(depth - 1)
+
+        # Build JSON object text with fields in fixed order
+        # Use no extra spaces to keep output compact
+        json_obj = (
+            '{'
+            + '"id":' + id_field + ','
+            + '"amount":' + amount_field + ','
+            + '"name":' + name_field + ','
+            + '"status":' + status_field + ','
+            + '"tags":' + tags_field + ','
+            + '"child":' + child_field
+            + '}'
+        )
+        return json_obj
+
+    # Generate top-level record with max recursion depth 1 (one nested child max)
+    json_text = gen_record(depth=1)
+
+    # Return as bytes
+    return json_text.encode("utf-8")
+```
+
+Return the full, revised Python source defining
+`@st.composite def generated_json(draw) -> bytes`. Start from your previous
+iteration's source above and change only what the score and feedback above
+suggest needs to change -- keep whatever part of it is already working
+rather than rewriting the whole generator from scratch.
+Emit syntactically valid JSON objects only (invalid JSON syntax is rejected
+identically by all four paths before any of them run, so it cannot score).
+Use bounded recursion and output sizes. The campaign runs at most 500
+examples per iteration. The only import allowed is `from hypothesis import strategies as st` -- do not import `json` or anything else; build the JSON text yourself with string concatenation and Hypothesis `.map()`/`.flatmap()` transforms.
+Do not use subprocesses, filesystem, network access, eval, exec, or
+coverage instrumentation.

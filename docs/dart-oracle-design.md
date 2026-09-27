@@ -911,6 +911,71 @@ Discussion §A extended, Future Work rewritten, Conclusion updated.
 Compiled clean, 9 pages. Estimated additional spend for this experiment:
 ~25 API calls ≈ $0.34.
 
+## 16. Follow-up: mutate-not-rewrite refinement, with a revert-on-regression guard (tested, negative result)
+
+**Status (2026-09-21): done, real API spend, third negative result on the
+RQ2 gap.** Section 14 sharpened future work toward structural changes over
+more descriptive prompting, specifically: letting the loop retain and mutate
+its previous iteration's generator source instead of discarding it and
+starting from a blank prompt every iteration (which `run_refinement_loop`
+had always done, unmodified from the original project, in every arm
+including category-feedback). Implementation: `build_refinement_prompt`
+gained `previous_source: str | None` (shown to the proposer as its own prior
+generator, with an instruction to revise incrementally rather than rewrite)
+and `regression_note: str | None`; `run_refinement_loop` gained
+`mutate_source: bool` (default `False`, existing behavior untouched) and
+tracks `last_source`/`best_source`/`best_schema_fraction` across iterations.
+CLI: `--mutate-source` on `run_dart_rq2_refinement.py`.
+
+A first held-out-seed smoke test (seed 300, naive version with no guard)
+showed *why* naive mutation is risky: iterations 1-2 reached 100%
+syntactically-valid output, but iteration 3's mutation introduced a bug in
+the `name`-field branch that broke JSON syntax for ~27-30% of output --
+and because the loop kept mutating forward from that flawed source, the bug
+persisted through iteration 5 rather than being fixed or discarded. Best
+divergence over the whole run: 0.76% over all documents -- below every
+prior arm's range, not a promising smoke result.
+
+Added a revert-on-regression guard in response
+(`_MUTATE_SOURCE_REGRESSION_THRESHOLD = 0.10`): if an iteration's
+schema-evaluated fraction drops more than 10 percentage points below the
+best fraction reached so far this run (including after a proposal that
+crashes outright), the *next* iteration mutates from that best-known source
+instead of the regressed one, with a `regression_note` telling the proposer
+what regressed and that it is working from an earlier version again.
+Re-running the same held-out seed 300 with the guard produced a much
+stronger single-seed result -- 5.33% over all documents, 10.91% over
+schema-evaluated documents, beating every prior arm's entire per-run range
+on the schema-evaluated metric -- which looked like a genuine fix and
+justified spending on the full $n{=}5$ comparison (fresh seeds 400-404,
+disjoint from the smoke seed).
+
+It did not replicate. Per-run divergence over all documents: 0.0, 2.93,
+4.75, 0.65, 0.30 (mean 1.73%, stdev 2.05). Exact two-sided Mann-Whitney U
+against the score-only arm (2.93% mean): $p \approx 0.31$. Against
+category-feedback (0.95% mean): $p \approx 0.69$. **Statistically
+indistinguishable from both existing refined arms**, still decisively below
+the static baseline ($p \approx 0.00794$, same complete separation every
+refined arm shows). The seed-300 smoke result was optimistic variance, not
+signal: it got an early crash out of the way fast and then two clean
+iterations to compound on; four of the five real-campaign seeds were less
+lucky (run-01/seed-400 crashed on 4 of its 5 iterations on the same
+pre-existing stochastic proposer failure already visible in the
+category-feedback logs -- "returns example data instead of a Hypothesis
+strategy" -- leaving only one usable iteration and 0% divergence). This
+exposes a real structural weakness of mutate-source specifically: a run's
+entire capacity to compound improvements depends on reaching one working
+base early, and a run that doesn't is left with little to no signal
+regardless of how good the guard is.
+
+Taken with Section 14, this is now a third independent structural/prompting
+intervention landing in the same regime: statistically indistinguishable
+from the other refined arms, an order of magnitude below the static
+baseline. Reported in the paper as strengthening evidence that the RQ2
+targeting gap is a genuine limitation of LLM-guided mutation for this
+objective, not an engineering detail away from being closed by the next
+prompt or loop-structure idea.
+
 ## 15. Side study: does `freezed` ever diverge from `json_serializable`?
 
 **Status (2026-09-06): done, qualitative, no LLM/API cost.** Addresses the
@@ -969,3 +1034,275 @@ Fully integrated into `paper/main.tex`: new Evaluation §F
 what was actually found and what remains. Compiled clean. No new API
 spend — pure Dart engineering + `dart run` (free).
 
+
+## 17. Follow-up: knowledge-parity arm (pre-registered 2026-09-27, before any API spend)
+
+**Why.** The static baseline's perturbation catalog was designed *after* the
+13-case characterization (Section 8) and after reading the generated `id`
+decoding code, while every refined arm receives only the schema and its score.
+So RQ2 as reported mixes up two explanations for the gap: (a) the human
+designer's prior knowledge, and (b) the LLM's search/implementation ability.
+This arm gives the proposer that same prior knowledge and changes nothing else.
+
+**Arm.** `--knowledge-parity` (`_KNOWLEDGE_PARITY_SECTION` in
+`dart_divergence_campaign.py`): the score-only prompt plus four numbered
+observations. They are checked line by line against the output of
+`harness/bin/characterize_exceptions.dart` and state only what was known
+before `dart_record_strategy.py` was written: the shared `jsonDecode` gate;
+built_value accepting a missing `tags`, with missing `id`/`amount`/`status`
+rejected by all four; wrong types, nulls and a bad enum rejected by all four,
+while an extra key and a missing `name`/`child` are accepted by all four; and
+`as int` vs `(as num).toInt()` saturation for `id`. The section contains no
+generator code, and nothing learned from any campaign. With the flag off,
+every existing arm's prompt was verified byte-identical to the committed
+version. The harness binary hash differs from the earlier arms' because Dart
+AOT builds are not byte-reproducible (two consecutive builds of unchanged
+source also differ), but it returned identical responses on all 2,500
+`rq2-baseline-n5` inputs.
+
+**Design.** Constrained sandbox (no `import json`), `gpt-4.1-mini`,
+temperature 0.2, 5 iterations × 500 examples, **seeds 500–504**, n=5, and no
+smoke run (the loop itself is unchanged; only the prompt text differs).
+Artifacts go in `artifacts/repeated/rq2-loop-knowledge-parity/`.
+
+**Primary outcome and test.** Per-run divergence rate over all generated
+documents, computed exactly as for every other arm in Table II. The test is an
+exact two-sided Mann-Whitney U against the score-only arm (seeds 3–7), and
+also against the static baseline. The secondary outcome is the rate over
+schema-evaluated documents only.
+
+**Decision rule (fixed now).**
+- Parity is significantly above score-only (p < 0.05) **and** its mean is
+  ≥ 11.1% (half the baseline's 22.2%): prior knowledge explains a substantial
+  part of the gap, and the paper's claim must be weakened accordingly.
+- Parity is significantly above score-only but its mean is < 11.1%: knowledge
+  helps but does not come close to closing the gap. Report both effects.
+- Parity is not significantly different from score-only: even with parity of
+  knowledge, the gap is in turning knowledge into an effective generator,
+  which strengthens the paper's targeting/implementation claim.
+
+Whatever the result, the prompt is not changed after seeing it, and every
+outcome goes in the paper.
+
+### 17.1 Results (run 2026-09-27, all five pre-registered seeds, no prompt changes)
+
+Per-run divergence rate over all documents, seeds 500–504:
+45.9, 0.0, 17.64, 26.35, 31.0 (mean **24.18%**, sd 16.96). Over
+schema-evaluated documents: 45.9, 0.0, 32.62, 44.40, 50.16 (mean 34.62%).
+Proposal failures: 12 of 25 iterations (score-only: 10 of 25), with the same
+failure types seen in earlier arms (returning an example document instead of a
+strategy, forbidden imports).
+
+Pre-registered primary test, parity vs score-only: exact two-sided p ≈ **0.151**,
+**not significant** at n=5. Parity vs static baseline: p ≈ 0.69, statistically
+indistinguishable.
+
+**Literal decision rule → branch 3 ("not significantly different from
+score-only").** But branch 3's stated interpretation ("the gap is in
+implementation, which strengthens the claim") is **not supported**, and I
+record here that the rule was badly designed: it treated a non-significant
+result as evidence of no effect. The data say something else. Four of the five
+parity runs (17.6–45.9%) lie above every score-only run (max 5.53%), and
+inside or above the baseline's range. The single exception, seed 501, got only
+one usable iteration out of five (4 proposal failures) and that iteration
+scored 0. The p-value is limited by n=5 plus one failed run; the effect size is
+not small.
+
+**Patterns.** The parity arm found only the two known divergence signatures:
+`RAAR` 988 (the `id` saturation) and `RRRA` 594 (built_value `tags`), with
+nothing new. So given the prior knowledge the LLM **exploits** it at or above
+the static generator's rate, but does not **discover** anything beyond it.
+
+**Correction found while checking this.** The paper said refined runs found
+"the same four divergence patterns" as the baseline. Two of those four
+signatures (`RRRR`, `AAAA`) are *agreement*. There are only two divergence
+patterns. Fixed in `paper/evaluation.tex`; the same wrong sentence is in the
+PDF currently on HotCRP (8 Sep version).
+
+**Implication.** Descriptively, most of the RQ2 gap looks like a *knowledge*
+gap (what a 13-case manual characterization provides), not an inability to
+search or implement. This contradicts the paper's current reading of the three
+follow-ups ("a genuine limitation of LLM-guided mutation"), which has to be
+revised. With the formal test not significant, a confirmatory replication on
+fresh seeds is the rigorous next step before the reframing becomes the paper's
+headline.
+
+### 17.2 Confirmatory replication (pre-registered 2026-09-27, before any spend on it)
+
+**Why.** §17.1 had a large descriptive effect but p≈0.151 at n=5, so the
+knowledge-gap reading should not become the paper's headline on that alone.
+
+**Design.** Identical to §17, on fresh **seeds 505–509**, written to the same
+artifact directory, with no code or prompt changes. (§17's seeds 500–504 were
+chosen before any result, so these seeds are disjoint by construction.)
+
+**Analyses (all exact two-sided Mann-Whitney U; all reported whatever they show).**
+1. Replication alone (505–509) vs score-only (seeds 3–7).
+2. Pooled parity (500–509, n=10) vs score-only (n=5). This is declared *now* as
+   the primary test for the paper, not chosen after seeing the replication.
+3. Pooled parity vs the static baseline (n=5).
+Alongside each p-value, report the effect size: the difference in means, and
+Cliff's delta (the fraction of cross-arm run pairs where parity is higher,
+minus the fraction where it is lower).
+
+**Decision rule.**
+- **Knowledge-gap reading supported**: analysis 2 gives p < 0.05, **and** the
+  pooled parity median is ≥ 11.1% (half the baseline mean). Then RQ2 is
+  reframed around the knowledge gap.
+- **Inconclusive**: analysis 2 gives p ≥ 0.05. Then the paper reports the
+  parity result descriptively, with its p-value and effect size, as
+  suggestive, and does *not* claim either reading. The "genuine limitation"
+  claim is removed either way, since §17.1 already contradicts it.
+- **Contradicted**: analysis 2 gives p < 0.05 but the pooled median is < 11.1%.
+  Then knowledge helps only modestly; report it as such.
+
+Proposal failures stay counted exactly as in every other arm (an iteration
+with no data contributes nothing). If the OpenAI budget cap interrupts a run,
+the runner aborts rather than recording a failure (`proposer()` is called
+outside the loop's try block). Any incomplete run is reported as incomplete,
+not rerun under the same seed.
+
+### 17.3 Replication results (2026-09-27, seeds 505–509, no changes)
+
+Per-run divergence over all documents: 22.07, 36.6, 41.64, 38.72, 27.65
+(mean **33.34%**); over schema-evaluated documents: mean 46.70%. Proposal
+failures: 4 of 25 iterations. The divergence signatures are again only the two
+known ones: `RAAR` 2261 and `RRRA` 1364.
+
+| Pre-registered analysis (over all documents) | n | p (exact) | mean diff | Cliff's δ |
+|---|---|---|---|---|
+| 1. Replication vs score-only | 5 vs 5 | **0.0079** | +30.41 | +1.00 |
+| 2. **Pooled parity vs score-only (PRIMARY)** | 10 vs 5 | **0.0127** | +25.83 | +0.80 |
+| 3. Pooled parity vs static baseline | 10 vs 5 | 0.1645 | +6.56 | +0.48 |
+
+Over schema-evaluated documents: analyses 1 and 2 as above (p 0.0079 / 0.0127), and
+analysis 3 gives parity **significantly above** the baseline (p 0.0127, Cliff's δ +0.80).
+The pooled parity median is 29.32%, which is ≥ 11.1%.
+
+**Decision (rule fixed in §17.2): knowledge-gap reading SUPPORTED.** Given the
+same four facts the static generator's designer had, the LLM-guided loop matches
+the hand-built generator over all documents and exceeds it on schema-evaluated
+documents. It finds no pattern beyond the ones it was told about. So the RQ2 gap
+in the paper comes from missing domain knowledge, not from an inability to search
+or implement. The paper's "genuine limitation of LLM-guided mutation" framing is
+withdrawn.
+
+One run in the replication's last iteration (seed 509, iteration 5) spent about
+3.5 minutes drawing examples, because its proposal filtered random text down to
+digit-only strings. The loop, which has no generation time limit in any arm,
+completed normally, and nothing was interrupted.
+
+## 18. Follow-up: a stronger proposer without the knowledge (pre-registered 2026-09-27, before spend)
+
+**Why.** §17 shows the RQ2 gap is a knowledge gap for `gpt-4.1-mini`. The open
+question is whether a more capable model *discovers* that knowledge from the
+score alone. This also addresses the external-validity threat that only one
+model was tested.
+
+**Arm.** The score-only prompt (no `--knowledge-parity`, constrained sandbox),
+with **`gpt-4.1`** in place of `gpt-4.1-mini`. Same family, same API
+parameters (temperature 0.2, `max_output_tokens` 2500), and not a reasoning
+model, so capability is the only change. Seeds **600–604**, 5 iterations × 500
+examples. Artifacts go in `artifacts/repeated/rq2-loop-gpt41/`. Estimated cost
+is about $0.37 (≈1.1k input and 1.6k output tokens per call, at $2/$8 per 1M).
+
+**Primary test.** Exact two-sided Mann-Whitney U, divergence over all
+documents, `gpt-4.1` score-only vs `gpt-4.1-mini` score-only (seeds 3–7), with
+the mean difference and Cliff's δ. Secondary: the same over schema-evaluated
+documents; vs the static baseline; vs pooled parity; and which divergence
+signatures appear (any beyond `RAAR`/`RRRA`).
+
+**Decision rule.**
+- p < 0.05 and median ≥ 11.1%: capability substantially helps discover the
+  knowledge. The paper reports the knowledge gap as model-dependent.
+- p < 0.05 and median < 11.1%: capability helps modestly; the gap persists.
+- p ≥ 0.05: no evidence that the stronger model closes the gap by itself.
+  Report as "not detected at n=5", not as "no effect".
+Every outcome is reported, and nothing changes after seeing the results.
+
+### 18.1 Results (2026-09-27, seeds 600–604, no changes)
+
+Per-run divergence over all documents: 0.1, 0.0, 0.3, 1.4, 0.2 (mean **0.40%**,
+median 0.20). Primary test vs `gpt-4.1-mini` score-only: exact p ≈ **0.016**,
+mean difference −2.53, Cliff's δ −0.92. The stronger model is **significantly
+worse**. Signatures: `RAAR` 10 and `RRRA` 17, so nothing new. 14 of 25
+iterations had their proposal rejected (score-only mini: 10 of 25).
+
+**The pre-registered rule did not anticipate a significant result in the
+negative direction.** Its "p < 0.05, median < 11.1%" branch assumed an
+improvement. Recorded here as a second rule-design gap, reported as-is.
+
+**Confound found on inspection: response parsing.** `llm._strip_code_fence`
+(unchanged from the original project) strips fences only when the *whole*
+response starts and ends with ```` ``` ````. `gpt-4.1` usually returns a fenced
+code block followed by explanatory prose, so the fence is left in and the
+sandbox rejects it with "invalid syntax (line 1)". Proposals still fenced after
+stripping: **gpt-4.1 11/25 (44%)**; `gpt-4.1-mini` 4/175 across all arms (≈2%:
+category 1, mutate-source 2, parity 1, score-only 0, json-allowed 0). So the
+artifact barely touches the earlier arms but heavily distorts this one.
+
+**Salvage analysis (descriptive only, no API spend).** I extracted the first
+fenced block from each of the 11 affected proposals and ran each once, in
+isolation, through the same sandbox and harness (500 examples, run seed). 9 of
+11 ran (2 have real code bugs). Pooled divergence was **1.31%** of all documents
+(2.26% of schema-evaluated), with a per-proposal maximum of 3.4%. That is still
+below mini score-only (2.93%) and an order of magnitude below the baseline and
+parity. Caveat: salvaged proposals are evaluated outside the loop, so the
+feedback chain they would have produced is not reconstructed.
+
+**Reading.** There is no evidence that the stronger model discovers the
+knowledge by itself; the conclusion holds with the artifact corrected. The
+*size* of the measured "worse than mini" gap is partly the parsing artifact,
+so the paper must not claim "a stronger model is worse".
+
+### 18.2 Clean rerun with lenient fence parsing (pre-registered 2026-09-27, before spend)
+
+**Fix.** `OpenAIProposer(lenient_fences=True)` (`--lenient-fence-parsing`):
+when a response opens with a fence, return the first fenced block even if
+prose follows it. It is off by default, so every earlier arm stays exactly
+reproducible. Verified: it gives the same output as the original parser for a
+fully fenced response, for unfenced text, and for an unclosed fence, and it
+changes none of the 175 stored `gpt-4.1-mini` proposals that parsed
+successfully.
+
+**Arm.** Identical to §18 (`gpt-4.1`, score-only, constrained sandbox) plus the
+flag, on fresh **seeds 605–609**, in `artifacts/repeated/rq2-loop-gpt41-lenient/`.
+§18.1's seeds 600–604 are reported as they are and not pooled with these.
+
+**Asymmetry, declared.** The mini arms ran with the original parser, which
+cost them at most 2 iterations per arm (4 of 175 overall). So the fix favours
+the `gpt-4.1` arm, which makes a "does not close the gap" conclusion
+conservative.
+
+**Primary test.** Exact two-sided Mann-Whitney U, divergence over all
+documents, vs `gpt-4.1-mini` score-only (seeds 3–7), with mean difference and
+Cliff's δ. Secondary: schema-evaluated rate, vs baseline, vs pooled parity,
+signatures.
+
+**Decision rule (all directions covered this time).**
+- p < 0.05, higher than mini, median ≥ 11.1%: capability substantially helps
+  discover the knowledge.
+- p < 0.05, higher than mini, median < 11.1%: it helps modestly; the gap persists.
+- p ≥ 0.05: no detectable difference from mini at n=5; the gap persists
+  across both model sizes.
+- p < 0.05, lower than mini: the stronger model is worse even with the
+  parsing fixed. Report it, and look at the failure types before interpreting.
+
+### 18.3 Clean rerun results (2026-09-27, seeds 605–609, no changes)
+
+Per-run divergence over all documents: 0.6, 2.52, 6.05, 0.0, 0.36 (mean **1.91%**,
+median 0.60); over schema-evaluated documents, mean 3.20%. Proposal rejections:
+5 of 25 (the §18.1 run had 14 of 25); fenced responses left: 0. Signatures:
+`RAAR` 172 and `RRRA` 36, nothing new.
+
+| Test (over all documents) | p (exact) | mean diff | Cliff's δ |
+|---|---|---|---|
+| **vs mini score-only (PRIMARY)** | **0.3095** | −1.02 | −0.44 |
+| vs static baseline | 0.0079 | −20.29 | −1.00 |
+| vs pooled parity | 0.0127 | −26.85 | −0.82 |
+
+**Decision (§18.2 rule): branch 3.** No detectable difference from
+`gpt-4.1-mini` at n=5. The gap persists across both model sizes, and the stronger
+model does not discover the knowledge from the score alone. The §18.1 result
+("significantly worse") is explained by the parsing artifact and is not a
+capability finding.
