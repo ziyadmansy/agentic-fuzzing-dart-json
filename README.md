@@ -14,7 +14,7 @@ divergence, and a ground-truth numeric round-trip check.
 **Paper:** the full write-up lives under [`paper/`](paper/main.tex) (LaTeX
 source, IEEEtran conference format; build with `tectonic main.tex` or any
 standard LaTeX toolchain) and is archived as a preprint at
-[doi.org/10.5281/zenodo.22555795](https://doi.org/10.5281/zenodo.22555795) —
+[doi.org/10.5281/zenodo.22555794](https://doi.org/10.5281/zenodo.22555794) —
 see [Results](#results) below for the headline numbers, or the paper itself
 for full methodology, related work, and discussion.
 
@@ -249,7 +249,7 @@ memory-safe, multi-implementation target.
 
 ## Citation
 
-[![Paper DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22555795.svg)](https://doi.org/10.5281/zenodo.22555795)
+[![Paper DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22555794.svg)](https://doi.org/10.5281/zenodo.22555794)
 [![Software DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22544011.svg)](https://doi.org/10.5281/zenodo.22544011)
 
 If you use this work, please cite the paper (preferred — see also
@@ -260,7 +260,7 @@ If you use this work, please cite the paper (preferred — see also
   author = {Ibrahim, Ziyad Mohammad Mansy},
   title  = {{Beyond Sanitizers: LLM-Guided Refinement for Differential JSON Deserialization Testing in Dart}},
   year   = {2026},
-  doi    = {10.5281/zenodo.22555795}
+  doi    = {10.5281/zenodo.22555794}
 }
 ```
 
