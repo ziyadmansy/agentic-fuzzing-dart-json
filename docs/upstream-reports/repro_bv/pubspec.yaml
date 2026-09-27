@@ -1,0 +1,9 @@
+name: repro_bv
+environment:
+  sdk: ^3.13.0
+dependencies:
+  built_value: 8.13.0
+  built_collection: any
+dev_dependencies:
+  build_runner: any
+  built_value_generator: 8.13.0
