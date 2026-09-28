@@ -86,7 +86,7 @@ fraction ranged 41.9\%--83.7\% across runs versus the baseline's fixed
 100\% -- but restricting to schema-evaluated documents still leaves 4.10\%
 against 22.2\%. Pooling every schema-evaluated record across the five
 refined seeds, the loop found exactly the same two divergence patterns the
-static generator found -- the two defects in
+static generator found -- the two silent failures in
 Section~\ref{sec:evaluation-defects} -- never a qualitatively new one, at a
 lower rate throughout.
 
@@ -236,7 +236,7 @@ than freezed's native unions for the failure mode polymorphic JSON is most
 likely to hit; running this schema through the automated pipeline at scale
 is future work.
 
-\subsection{Two concrete, practitioner-actionable defects}
+\subsection{Two concrete, practitioner-relevant silent failures}
 \label{sec:evaluation-defects}
 Both were found by the static generator alone, with no LLM involved.
 \textbf{(1) Silent integer saturation} (RQ3): a Flutter application using
@@ -251,5 +251,11 @@ absent (or explicitly \texttt{null}) as an empty list, while the other three
 paths reject it. Missing scalar fields (\texttt{id}, \texttt{amount},
 \texttt{status}) are rejected by every path including \texttt{built\_value},
 so the finding is scoped to its auto-created collection builders, not
-general laxness. Both defects reproduce with the released harness, and we
-have reported both to the respective maintainers.
+general laxness. Both reproduce with the released harness. We reported both
+to the respective maintainers, who confirmed that each behavior is intended
+(a deliberate \texttt{int}/\texttt{double} decoding trade-off, and
+builder defaults that let fields be added compatibly) but was
+undocumented; both are now being documented upstream. Neither is therefore a
+bug in its framework, but each silently changes or invents data without
+any error, which is what an application that trusts these fields needs to
+know.
