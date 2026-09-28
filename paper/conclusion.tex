@@ -19,7 +19,7 @@ manual characterization is the high-leverage input, and refinement is the
 tool for exploiting it rather than a replacement for it.
 
 Independently of any LLM, the static generator's campaigns expose two
-defects directly actionable for Flutter teams: \texttt{json\_serializable}
+silent failures directly relevant to Flutter teams: \texttt{json\_serializable}
 and \texttt{freezed} silently saturate out-of-range integers to
 \texttt{int64} bounds, and \texttt{built\_value} silently defaults a
 missing required list to empty. We release the full pipeline, harness, and

@@ -19,7 +19,8 @@ entirely: in a pre-registered, replicated comparison, refinement then reaches
 a 28.8\% mean ($p \approx 0.013$ against score-only), matching the static
 generator -- yet it never finds a divergence beyond what it was told. The gap
 is domain knowledge, not search. The campaigns also expose two
-practitioner-actionable defects: \texttt{json\_serializable} and
+practitioner-relevant silent failures: \texttt{json\_serializable} and
 \texttt{freezed} silently saturate out-of-range integers to \texttt{int64}
 bounds (5.7\% of 43{,}336 checks), and \texttt{built\_value} silently
-defaults a missing required list to empty.
+defaults a missing required list to empty. Maintainers confirmed both
+are intended but were undocumented.
