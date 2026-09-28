@@ -6,7 +6,7 @@ RQ1: reusing the original acceptance-rate proxy and refinement loop
 unmodified in mechanism, does LLM-guided refinement raise the fraction of
 generated documents a Dart JSON decoder accepts as syntactically valid,
 relative to a static grammar-only baseline, the way it did for a native C
-target? RQ2: across four independently-implemented Dart JSON deserialization
+target? RQ2: across four widely-used Dart JSON deserialization
 paths, does malformed or boundary-case input surface behavioral divergence,
 and does refinement -- once its prompt is corrected to make divergence the
 explicit objective -- find more of it than a static, schema-aware generator?
@@ -192,7 +192,8 @@ telling the proposer what regressed.
 
 \textbf{Knowledge parity} (seeds 500--509)\label{sec:knowledge-parity}: the
 static generator's perturbation catalog was designed after the thirteen-case
-characterization of the four paths, while every refined arm above sees only
+characterization of the four paths (documents chosen by the researchers and
+run through the harness outside the loop), while every refined arm above sees only
 the schema and its score. This arm adds to the score-only prompt exactly what
 that designer knew beforehand, as four plain observations with no generator
 code: invalid JSON is rejected identically by all four paths;
@@ -210,7 +211,7 @@ response parser does not strip (a first run on seeds 600--604 lost 11 of 25
 iterations to this), this arm extracts the first fenced block; the fix is
 opt-in, affected at most 2 iterations of any \texttt{gpt-4.1-mini} arm, and
 favors \texttt{gpt-4.1}. For both arms, seeds, tests, and decision rules were
-fixed in the released design document before any run.
+written into the released design document before any run.
 
 \subsection{Experimental design}
 All three research questions use seeded, independent runs (Hypothesis's
@@ -225,5 +226,5 @@ examples per run) against five refined runs under the corrected prompt.
 RQ3 requires no separate campaign: every schema-evaluated record collected
 for RQ2 already carries each path's canonical \texttt{id} and the
 document's own source text, so RQ3's ground-truth comparison is computed as
-an analysis pass over RQ1/RQ2's existing data rather than a third parallel
+an analysis pass over RQ2's existing campaign data rather than a third parallel
 generator/harness/campaign pipeline.

@@ -22,7 +22,7 @@ well-audited Dart decoder would likely reproduce the uninformative negative
 result the original study already reported for its second C target, so we
 design two oracles that do not depend on a crash at all. The first is
 \emph{differential divergence}: every generated document runs through four
-independently-implemented, widely-used Dart JSON deserialization paths --
+widely-used Dart JSON deserialization paths --
 hand-written parsing, and the \texttt{json\_serializable}, \texttt{freezed},
 and \texttt{built\_value} codegen frameworks -- and disagreement between
 them is the signal. The second is a \emph{ground-truth numeric round-trip
@@ -65,7 +65,7 @@ had and the loop did not. This paper contributes:
     category feedback makes it significantly worse ($p \approx 0.032$), and
     mutate-not-rewrite refinement does not replicate a promising held-out
     seed -- localizing the gap to targeting.
-  \item A pre-registered, replicated knowledge-parity experiment showing the
+  \item A replicated knowledge-parity experiment, with its protocol fixed in advance, showing the
     gap is domain knowledge: given four observations from a thirteen-case
     manual characterization, refinement matches the static generator
     (28.8\% mean, $p \approx 0.013$ against score-only), while a larger
