@@ -47,7 +47,9 @@ prompt from documentation and examples and to generate and mutate inputs
 from it. CodaMOSA~\cite{lemieux2023codamosa} invokes an LLM only after
 search-based test generation's coverage plateaus, asking it for example
 test cases to escape the plateau -- i.e., the LLM is invoked \emph{because}
-coverage feedback is available and has stalled. This paper's setting differs
+coverage feedback is available and has stalled. G2Fuzz~\cite{zhang2025g2fuzz}
+and ELFuzz~\cite{chen2025elfuzz} have an LLM synthesize and evolve input
+generators, but select them by coverage. This paper's setting differs
 along the same axis as its predecessor~\priorworkcite: no coverage
 signal is available at any point, and the LLM's job is to revise a reusable,
 executable \emph{generator} against feedback a black-box harness can
@@ -59,7 +61,7 @@ against identical inputs and comparing their outputs, rather than checking
 each against a hand-written oracle, dates to McKeeman's differential
 testing~\cite{mckeeman1998differential}. This idea is what makes RQ2's
 oracle possible at all in a setting with no crash to detect: four
-independently-implemented Dart JSON deserialization paths sharing one
+Dart JSON deserialization paths (three of them independently implemented) sharing one
 formal schema give a comparison target for free, the same way McKeeman
 compared independent compiler implementations against each other rather
 than against a formal semantics. Where classic differential testing
@@ -67,7 +69,12 @@ compares whole programs given the same input, our four paths share almost
 their entire input pipeline (Section~\ref{sec:methodology}'s shared
 JSON-syntax gate) and differ only in schema-level decoding, which is a
 narrower and, we find, more failure-prone surface than differential testing
-is usually applied to.
+is usually applied to. For JSON specifically, cross-language differential
+testing of parsers has found many semantic discrepancies at the text-to-tree
+level~\cite{moller2024crosslanguage}, and JsonATG~\cite{wang2025jsonatg} uses
+a multi-agent LLM pipeline to generate bug-triggering tests for Java JSON
+libraries; we instead target typed binding, from tree to class, where all four
+paths share the parsing step.
 
 \paragraph{Positioning.} This paper is a direct empirical follow-up to
 \priorworkcite, which evaluated the identical refinement-loop

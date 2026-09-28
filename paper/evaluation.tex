@@ -241,7 +241,7 @@ is future work.
 Both were found by the static generator alone, with no LLM involved.
 \textbf{(1) Silent integer saturation} (RQ3): a Flutter application using
 \texttt{json\_serializable} or \texttt{freezed} to decode an identifier that
-can exceed 64-bit range (a snowflake ID, an external database key) silently
+can exceed the signed 64-bit range (e.g.\ an unsigned 64-bit key from another system) silently
 receives \texttt{int64::MAX} or \texttt{int64::MIN} rather than an
 exception; the same \texttt{toInt()} call also silently truncates a
 fractional literal (\texttt{1.9} decodes to \texttt{1}), which we confirmed
@@ -255,7 +255,8 @@ general laxness. Both reproduce with the released harness. We reported both
 to the respective maintainers, who confirmed that each behavior is intended
 (a deliberate \texttt{int}/\texttt{double} decoding trade-off, and
 builder defaults that let fields be added compatibly) but was
-undocumented; both are now being documented upstream. Neither is therefore a
+undocumented; one is now documented upstream and the other's documentation
+is under review. Neither is therefore a
 bug in its framework, but each silently changes or invents data without
 any error, which is what an application that trusts these fields needs to
 know.
