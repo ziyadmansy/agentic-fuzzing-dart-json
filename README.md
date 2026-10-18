@@ -54,16 +54,15 @@ two oracles instead that do not depend on a crash occurring at all:
   about what "correct" looks like beyond the literal text the generator
   wrote.
 
-The central finding: the same refinement mechanism that raises acceptance
-rate against a single decoder (replicating the original paper's result
-almost exactly on this new runtime) does **not** transfer to the
-differential-divergence objective — it underperforms a simple static
-generator by an order of magnitude, and two tested follow-ups (relaxing the
-sandbox's `import json` restriction; feeding back perturbation categories
-instead of a bare score) both fail to close the gap, one of them making
-things measurably worse. Whether LLM-guided refinement helps depends on the
-objective it is asked to optimize, holding target, model, and iteration
-budget fixed.
+The central finding: the same loop that raises acceptance against a single
+decoder (its generators are already valid before any feedback, as in the
+original study) underperforms a simple static generator by an order of
+magnitude on the differential-divergence objective (2.93% vs 22.2%). Allowing
+`import json`, category feedback, incremental mutation and a larger model
+(`gpt-4.1`) all leave it in the same regime. Four observations from the
+thirteen-case manual characterization close the gap (28.8% over ten seeds,
+p ≈ 0.013 against score-only), yet the loop never finds a divergence it was
+not told about: the bottleneck is domain knowledge, not search.
 
 ## Oracles
 
@@ -214,12 +213,23 @@ IV-D).
 | RQ1 — acceptance rate | 50.0% | 92.0% | Complete separation, exact $p \approx 0.0079$ |
 | RQ2 — divergence rate | 22.2% | 2.93% | Complete separation, exact $p \approx 0.0079$ (opposite direction) |
 | RQ2 ablation — `import json` allowed | — | 2.20% | $p \approx 0.69$ vs. constrained sandbox (no improvement) |
-| RQ2 follow-up — category feedback | — | 0.95% | $p \approx 0.032$ vs. score-only prompt (significantly worse) |
+| RQ2 follow-up — category feedback | — | 0.95% | $p \approx 0.032$ vs. score-only, uncorrected (0.13 after Holm across the four exploratory follow-ups) |
+| RQ2 follow-up — mutate source | — | 1.73% | $p \approx 0.31$ vs. score-only |
+| RQ2 follow-up — `gpt-4.1` proposer | — | 1.91% | $p \approx 0.31$ vs. score-only |
+| RQ2 — knowledge parity ($n{=}10$) | — | 28.8% | $p \approx 0.013$ vs. score-only (pre-declared primary test) |
 
 RQ3: `json_serializable`/`freezed` silently saturate an out-of-range
-integer field to `int64::MIN`/`MAX` at a 5.7% rate across 43,336 checks
-(manual/`built_value`: 0.0%). Two concrete, practitioner-actionable defects
-and the discriminated-union side study are detailed in the paper.
+integer field to `int64::MIN`/`MAX` in 649 of 11,449 accepted decodes each
+(5.7%; manual/`built_value`: 0.0%). Both silent failures (this one, and
+`built_value` defaulting a missing required list to empty) were confirmed by
+their maintainers as intended but undocumented, and both are now documented
+upstream; they and the discriminated-union side study are detailed in the
+paper.
+
+The score-only arm is seeds 3–7 of `artifacts/repeated/rq2-loop-run01`
+(seeds 0–2 ran the first, superseded prompt). Seed 3 is also the seed on which
+the revised prompt was first tried; excluding it changes no conclusion (see
+the paper, Section IV-B).
 
 All numbers trace to raw campaign data under `artifacts/repeated/`.
 

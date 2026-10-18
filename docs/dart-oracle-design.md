@@ -1117,7 +1117,7 @@ the static generator's rate, but does not **discover** anything beyond it.
 "the same four divergence patterns" as the baseline. Two of those four
 signatures (`RRRR`, `AAAA`) are *agreement*. There are only two divergence
 patterns. Fixed in `paper/evaluation.tex`; the same wrong sentence is in the
-PDF currently on HotCRP (8 Sep version).
+8 Sep PDF.
 
 **Implication.** Descriptively, most of the RQ2 gap looks like a *knowledge*
 gap (what a 13-case manual characterization provides), not an inability to

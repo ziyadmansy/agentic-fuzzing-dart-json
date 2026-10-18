@@ -5,9 +5,9 @@ We retargeted an LLM-guided, coverage-free grammar-fuzzing pipeline at a
 memory-safe language, where its sanitizer-based crash oracle has no
 meaning, replacing that oracle with cross-implementation differential
 divergence across four Dart JSON deserialization paths and a ground-truth
-numeric round-trip check. The unchanged refinement loop reproduces the
-original acceptance-rate result on this new target (50.0\% to a 92.0\%
-mean), but underperforms a static, schema-aware generator by an order of
+numeric round-trip check. The unchanged refinement loop's generators
+reproduce the original acceptance gain on this new target (50.0\% to a
+92.0\% mean), already before any feedback, but the loop underperforms a static, schema-aware generator by an order of
 magnitude on the differential objective (2.9\% vs.\ 22.2\%). Generation
 overhead, feedback richness, loop structure, and model size do not explain
 the gap; domain knowledge does. Given four observations from the manual
