@@ -763,7 +763,7 @@ agentic-fuzzing/
 │       └── ablation-counts/, ablation-counts-rejections/, ablation-full/   # RQ3
 ├── paper/
 │   ├── main.tex                   # IEEEtran conference class, real author block
-│   ├── main-icst-submission.tex   # identical content, anonymized author block for double-blind review
+│   ├── main-anon.tex              # identical content, anonymized author block for double-blind review
 │   ├── abstract.tex, introduction.tex, related_work.tex, methodology.tex,
 │   │   evaluation.tex, discussion.tex, conclusion.tex   # \input-ed section files, shared by both .tex entry points
 │   ├── references.bib
@@ -834,9 +834,9 @@ depends on.
   table (`table*` environment, spans both columns).
 - Two parallel entry points sharing every section file via `\input{}`: `main.tex`
   (real author block: name, affiliation "Independent Researcher", email, ORCID) and
-  `main-icst-submission.tex` (anonymized author block: "Anonymous Author(s)",
-  "Submission under double-blind review", no identifying links) — for ICST 2027's
-  double-blind policy. **Only the author block differs**; content sections
+  `main-anon.tex` (anonymized author block: "Anonymous Author(s)",
+  "Submission under double-blind review", no identifying links) — for double-blind
+  review. **Only the author block differs**; content sections
   (`introduction.tex` through `conclusion.tex`) are never duplicated or edited
   separately between the two.
 - Required sections, in order: Abstract, Introduction, Related Work, Methodology,

@@ -4,19 +4,17 @@
 \subsection{Interpreting the RQ1/RQ2 contrast}
 The central empirical fact of this paper is not either number in
 Section~\ref{sec:evaluation} alone, but that they point in opposite
-directions under an otherwise identical mechanism: the same loop, proposer
-model, iteration budget, and sandboxing discipline raise acceptance rate on
-a like-for-like replication of the original objective (RQ1) and
-underperform a simple static generator on a differential objective (RQ2).
-``LLM-guided refinement helps'' is not a property of the pipeline in
-general, but of the pipeline \emph{given a specific objective}. Acceptance
-rate against a single decoder is a smooth signal: almost any change that
-makes a document more JSON-shaped moves it in the right direction, and an
-LLM has seen enormous amounts of well-formed JSON. Cross-implementation
-divergence requires a document that is \emph{simultaneously} valid enough
-to clear one path and malformed in one specific, narrow way that trips
-another -- a needle-in-haystack search over a far smaller region of the
-input space.
+directions under an otherwise identical loop: the same proposer model,
+iteration budget, and sandboxing discipline raise acceptance on a
+like-for-like replication of the original objective (RQ1) and underperform
+a simple static generator on a differential objective (RQ2). The two
+objectives differ in what they demand of the model. Valid JSON is something
+an LLM has seen in enormous quantities, and it writes valid generators
+before any feedback arrives (RQ1). Cross-implementation divergence requires
+a document that is \emph{simultaneously} valid enough to clear one path and
+off in one specific, narrow way that trips another, and which ways those
+are is a property of four particular libraries that the model has no
+reason to know.
 
 The follow-ups and the parity arm together locate where the difficulty
 lies. Removing generation overhead changed nothing, so the problem is not
@@ -58,9 +56,10 @@ relative to a specification. RQ3's ground-truth oracle is scoped to the one
 field (\texttt{id}) that is a bare JSON number; the string-typed
 \texttt{amount} cannot exhibit numeric precision loss.
 
-\textbf{Internal validity.} The corrected RQ2 prompt was validated on a
-held-out seed before the five-seed comparison, to avoid tuning on the
-reported data, but we tried no further prompt variants beyond it and the
+\textbf{Internal validity.} The corrected RQ2 prompt was adopted after one
+run on a fresh seed, which is also one of the five reported score-only runs
+and their best; excluding it strengthens rather than weakens the gap
+(Section~\ref{sec:evaluation-rq2}). We tried no further prompt variants beyond it and the
 follow-ups, so a different, equally principled design might close more of
 the gap. The knowledge-parity arm's four observations were checked line by
 line against the characterization output and stated only what was known
@@ -80,7 +79,11 @@ under a fixed API budget and reported as such. Complete separation at
 $n{=}5$ gives $p \approx 0.00794$, the smallest attainable value, not an
 effect size; we report per-run rates in Tables~\ref{tab:rq1}
 and~\ref{tab:rq2} for that reason. Mutate-source in particular has high
-per-run variance (stdev 2.05, on par with its mean).
+per-run variance (stdev 2.05, on par with its mean). The four exploratory
+follow-ups (JSON allowed, categories, mutate source, \texttt{gpt-4.1}) are
+reported uncorrected. With a Holm correction across them none is
+significant, so we read them as one consistent pattern rather than four
+findings. The parity arm was declared as its own primary test.
 
 \textbf{External validity.} All results are on JSON, four pinned-version
 Dart deserialization paths, and two proposer models from one family

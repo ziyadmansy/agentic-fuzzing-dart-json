@@ -5,7 +5,7 @@
 RQ1: reusing the original acceptance-rate proxy and refinement loop
 unmodified in mechanism, does LLM-guided refinement raise the fraction of
 generated documents a Dart JSON decoder accepts as syntactically valid,
-relative to a static grammar-only baseline, the way it did for a native C
+relative to the static baseline, as it did for a native C
 target? RQ2: across four widely-used Dart JSON deserialization
 paths, does malformed or boundary-case input surface behavioral divergence,
 and does refinement -- once its prompt is corrected to make divergence the
@@ -112,13 +112,15 @@ than one input.
 
 \subsection{Generators}
 \label{sec:generators}
-\textbf{RQ1} reuses the original pipeline's grammar-derived generator
-(the ANTLR grammars-v4 JSON grammar~\cite{antlr2024grammarsv4,parr2013antlr}
-translated by hand into Hypothesis combinators) completely unmodified,
-targeting the shared structural gate directly:
+\textbf{RQ1} reuses the original pipeline's static baseline completely
+unmodified: it alternates a bounded JSON value serialized with Python's
+\texttt{json.dumps} with the same document plus one malformed suffix, so
+exactly half its inputs are invalid by design. The proposer is given the
+ANTLR grammars-v4 JSON grammar~\cite{antlr2024grammarsv4,parr2013antlr}.
+RQ1 targets the shared structural gate directly:
 ``accepted'' is defined exactly as the original grammar defines it -- any
 value type at the top level, not only objects -- specifically so this
-research question tests portability of the refinement \emph{mechanism} on a
+research question tests portability of the loop on a
 like-for-like criterion, not a criterion this paper's own schema happens to
 impose. \textbf{RQ2/RQ3} require a schema-aware generator instead, since
 Section~\ref{sec:oracles}'s shared gate makes a grammar-only mutator
@@ -164,8 +166,8 @@ hint -- vary one or two things about an otherwise-valid document rather
 than maximizing how broadly malformed a document looks -- deliberately
 worded to avoid naming the specific fields or outcomes already known by
 hand, so that any resulting discovery would be the loop's own. The fix was
-validated on a single held-out seed before being adopted for the reported
-comparison (Section~\ref{sec:evaluation-rq2}).
+first run on one fresh seed (seed 3) before being adopted; that run is one
+of the five reported score-only runs (Section~\ref{sec:evaluation-rq2}).
 
 \subsection{Follow-up arms on the RQ2 gap}
 \label{sec:ablation-json}\label{sec:category-feedback}\label{sec:mutate-source}
@@ -218,8 +220,8 @@ All three research questions use seeded, independent runs (Hypothesis's
 draw stream reseeded once per run via the reproducibility shim above), with
 $n{=}5$ per arm under a fixed API budget, reported as such throughout --
 the same discipline the original project applied to its own smaller-sample
-ablation. RQ1 compares a static baseline (one iteration, the
-grammar generator alone) against five refined runs (five iterations of up
+ablation. RQ1 compares the static baseline (one campaign of 500
+examples per run) against five refined runs (five iterations of up
 to 500 examples each, \texttt{gpt-4.1-mini}, temperature 0.2). RQ2 compares
 a static baseline (the schema-aware generator, one campaign of 500
 examples per run) against five refined runs under the corrected prompt.
